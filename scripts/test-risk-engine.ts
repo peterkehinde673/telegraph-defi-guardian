@@ -52,7 +52,7 @@ async function runRiskEngineTests() {
         timestamp: new Date().toISOString(),
         canonical: 'crypto:toxic:1.0',
         summary: 'Toxic token down 65%',
-        attribution: { minerId: '99', minerName: 'Telegraph Onchain Miner' },
+        attribution: { minerId: '9002', minerName: 'TxLens' },
         validation: { isValid: true, hasCanonicalProof: true, multiSourceVerified: true, warnings: [] },
         data: {
           assetId: 'toxic',
@@ -73,7 +73,7 @@ async function runRiskEngineTests() {
         timestamp: new Date().toISOString(),
         canonical: 'tvl:toxic:50000',
         summary: 'Collateral depleted',
-        attribution: { minerId: '99', minerName: 'Telegraph TVL Miner' },
+        attribution: { minerId: '9002', minerName: 'TxLens' },
         validation: { isValid: true, hasCanonicalProof: true, multiSourceVerified: true, warnings: ['Depleted TVL'] },
         data: {
           entityId: 'toxic',
@@ -92,7 +92,7 @@ async function runRiskEngineTests() {
         timestamp: new Date().toISOString(),
         canonical: 'gas:eth:180',
         summary: 'Gas surging',
-        attribution: { minerId: '99', minerName: 'Telegraph Gas Miner' },
+        attribution: { minerId: '9002', minerName: 'TxLens' },
         validation: { isValid: true, hasCanonicalProof: true, multiSourceVerified: true, warnings: [] },
         data: {
           chain: 'eth',
@@ -133,7 +133,7 @@ async function runRiskEngineTests() {
         timestamp: new Date().toISOString(),
         canonical: 'wallet_risk:0x123:0.95',
         summary: 'Flagged mixer deposit',
-        attribution: { minerId: '99', minerName: 'Telegraph Sentinel Miner' },
+        attribution: { minerId: '9002', minerName: 'TxLens' },
         validation: { isValid: true, hasCanonicalProof: true, multiSourceVerified: true, warnings: [] },
         data: {
           walletAddress: '0x1234567890123456789012345678901234567890',

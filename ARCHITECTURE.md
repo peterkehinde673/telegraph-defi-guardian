@@ -21,13 +21,13 @@
             (2. Concurrency)  │                 │ (3. Network Telemetry)
                               ▼                 ▼
   ┌─────────────────────────────────┐      ┌─────────────────────────────────┐
-  │   SPECIALIZED TELEGRAPH MINERS  │      │     TELEGRAPH PROTOCOL NODE     │
-  │ • Miner #99: Price & Multi-Feed │      │ • GET /status (Node Public Key) │
-  │ • Miner #99: Protocol TVL Depth │      │ • GET / (SubnetResponse Stream) │
-  │ • Miner #99: EVM Gas & Surge    │      │ • GET /miner-dispatcher/miners  │
-  │ • Miner #99: Fraud & Wallet     │      └────────────────┬────────────────┘
-  │ • Miner #99: Token Holder Count │                       │
-  │ • Miner #99: SSL Infrastructure │                       │
+  │   REGISTERED TELEGRAPH MINERS   │      │     TELEGRAPH PROTOCOL NODE     │
+  │ • Miner #9002: TxLens (Price)   │      │ • GET /status (Node Public Key) │
+  │ • Miner #9002: TxLens (TVL)     │      │ • GET / (SubnetResponse Stream) │
+  │ • Miner #9002: TxLens (Gas)     │      │ • GET /miner-dispatcher/miners  │
+  │ • Miner #9002: TxLens (Fraud)   │      └────────────────┬────────────────┘
+  │ • Miner #9002: TxLens (Holders) │                       │
+  │ • Miner #9002: TxLens (SSL)     │                       │
   └────────────────┬────────────────┘                       │
                    │                                        │
                    │ (4. Raw Attested Payloads)             │

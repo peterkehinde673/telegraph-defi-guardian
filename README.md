@@ -1,9 +1,11 @@
 # Telegraph DeFi Guardian
 
-> **Verifiable, Multi-Intent DeFi Intelligence & Deterministic Risk Assessment Platform**  
-> Built on the **Telegraph Protocol** on Base-Sepolia.
+> **Telegraph Protocol Hackathon: TRACK 3 — APPLICATIONS**  
+> **Verifiable, Multi-Intent DeFi Intelligence & Deterministic Risk Assessment Terminal**  
+> Consuming live on-chain intelligence and decentralized miner attestations on Base-Sepolia.
 
-[![Telegraph Protocol](https://img.shields.io/badge/Telegraph%20Protocol-Base--Sepolia-blue.svg)](https://devnode.telegraphprotocol.com)
+[![Hackathon Track](https://img.shields.io/badge/Telegraph%20Hackathon-Track%203%20(Applications)-brightgreen.svg)](https://telegraphprotocol.com)
+[![Telegraph Protocol](https://img.shields.io/badge/Telegraph%20Subnet-Base--Sepolia-blue.svg)](https://devnode.telegraphprotocol.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.2-purple.svg)](https://vitejs.dev/)
@@ -11,9 +13,9 @@
 
 ---
 
-## 1. Executive Summary
+## 1. Executive Summary & Track 3 Focus
 
-**Telegraph DeFi Guardian** is an enterprise-grade decentralized financial intelligence and security terminal that aggregates live, cryptographically signed signals from specialized **Telegraph Protocol Miners** on Base-Sepolia. It transforms heterogeneous raw intelligence feeds into a rigorous, deterministic **0–100 DeFi Risk Score** with explicit mathematical attribution for every contributing factor.
+**Telegraph DeFi Guardian** is a **Track 3 (Applications)** production platform that directly consumes live intelligence from registered **Telegraph Protocol Miners** on Base-Sepolia. It solves the fragmentation and opacity of DeFi risk analysis by querying multiple miner intents concurrently, normalizing attested payloads into canonical data models, and computing an auditable, deterministic **0–100 DeFi Risk Score** with explicit cryptographic and miner attribution.
 
 ---
 
@@ -59,18 +61,20 @@ The **Telegraph Protocol** provides a decentralized marketplace for verifiable A
                                         │
                                         │ (POST /api/telegraph/analyze)
                                         ▼
-                                EXPRESS API LAYER
-                     (Node.js / tsx Proxy & Timeout Guard)
+                                 EXPRESS API LAYER
+                      (Node.js / tsx Proxy & Timeout Guard)
                                         │
                  ┌──────────────────────┴──────────────────────┐
                  ▼                                             ▼
-    TELEGRAPH PROTOCOL NODE                      SPECIALIZED TELEGRAPH MINERS
-  • GET /status (Public Key & Node)             • Miner #99: CRYPTO_PRICE
-  • GET / (Live SubnetResponse Events)          • Miner #99: TVL_LOOKUP
-  • GET /miner-dispatcher/integrations          • Miner #99: GAS_PRICE
-                                                • Miner #99: FRAUD_DETECTION (Wallet)
-                                                • Miner #99: TOKEN_HOLDER_COUNT
-                                                • Miner #99: SSL_VERIFICATION
+    TELEGRAPH PROTOCOL NODE                      REGISTERED TELEGRAPH MINERS
+  • GET /status (Public Key & Node)             • Miner #9002 (TxLens): CRYPTO_PRICE
+  • GET / (Live SubnetResponse Events)          • Miner #9002 (TxLens): TVL_LOOKUP
+  • GET /miner-dispatcher/integrations          • Miner #9002 (TxLens): GAS_PRICE
+                                                • Miner #9002 (TxLens): FRAUD_DETECTION (Wallet)
+                                                • Miner #9002 (TxLens): TOKEN_HOLDER_COUNT
+                                                • Miner #9002 (TxLens): SSL_VERIFICATION
+                                                • Fallback Miner #20260829 (AgentFeed): Prices
+                                                • Fallback Miner #7301 (GasWire): Gas Fees
                  │                                             │
                  └──────────────────────┬──────────────────────┘
                                         ▼
@@ -91,16 +95,17 @@ The **Telegraph Protocol** provides a decentralized marketplace for verifiable A
 
 ---
 
-## 6. Supported Telegraph Intents & Miner Map
+## 6. Supported Telegraph Intents & Official Miner Map
 
-| Intent | Primary Miner | Miner ID | Endpoint Path | Extracted Intelligence |
+| Intent | Registered Miner | Miner ID | Official Miner Endpoint Path | Extracted Intelligence |
 | :--- | :--- | :--- | :--- | :--- |
-| `CRYPTO_PRICE` | Telegraph Onchain Lookup Miner | `#99` | `/crypto-price?query={symbol}` | Price USD, 24h Change %, Market Cap, Multi-Source Spread |
-| `TVL_LOOKUP` | Telegraph TVL Miner | `#99` | `/tvl?protocol={name}` | Total Value Locked (USD), Chain Allocations, Collateral Depth |
-| `GAS_PRICE` | Telegraph Onchain Gas Miner | `#99` | `/gas-price?chain={chain}` | Gas Price (Gwei), Wei, Transfer Cost USD, Fee Surge Level |
-| `FRAUD_DETECTION` | Telegraph Sentinel Miner | `#99` | `/assess-wallet?wallet={address}` | Risk Score (0–1), Reason Codes, Funder Fan-Out, Mixer Flags |
-| `TOKEN_HOLDER_COUNT`| Telegraph Holder Miner | `#99` | `/token-holders?address={addr}` | Active On-Chain Holders, Whale Concentration Tier |
-| `SSL_VERIFICATION` | Telegraph Infrastructure Miner | `#99` | `/ssl-check?domain={domain}` | SSL Validity, Issuer, Days to Expiry, Certificate Grade |
+| `CRYPTO_PRICE` | TxLens | `#9002` | `/crypto-price?coin_id={symbol}` | Price USD, 24h Change %, Market Cap, Multi-Source Spread |
+| `TVL_LOOKUP` | TxLens | `#9002` | `/tvl?protocol={name}` | Total Value Locked (USD), Chain Allocations, Collateral Depth |
+| `GAS_PRICE` | TxLens | `#9002` | `/gas-price?chain={chain}` | Gas Price (Gwei), Wei, Transfer Cost USD, Fee Surge Level |
+| `FRAUD_DETECTION` | TxLens | `#9002` | `/assess-wallet?wallet={address}` | Risk Score (0–1), Reason Codes, Funder Fan-Out, Mixer Flags |
+| `FRAUD_QUERY` | TxLens | `#9002` | `/fraud-query` (POST) | Source-Backed Forensic Fraud Assessment |
+| `TOKEN_HOLDER_COUNT`| TxLens | `#9002` | `/token-holders?token={address}` | Active On-Chain Token Holders, Concentration Tier |
+| `SSL_VERIFICATION` | TxLens | `#9002` | `/ssl-check?domain={domain}` | SSL Validity, Issuer, Days to Expiry, Certificate Grade |
 | `SUBNET_EVENTS` | Base-Sepolia Telegraph Node | N/A | `/` | Signed `SubnetResponse` Events, Validator Signatures |
 | `MINER_DISPATCHER` | Base-Sepolia Telegraph Node | N/A | `/miner-dispatcher/integrations` | Active Miner Directory & Supported Capabilities |
 

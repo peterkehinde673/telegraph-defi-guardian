@@ -76,7 +76,7 @@ export class TelegraphClient {
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      // Primary miner for CRYPTO_PRICE: Telegraph Onchain Lookup Miner (Rank 1)
+      // Primary miner for CRYPTO_PRICE: TxLens (Miner #9002 in Telegraph Registry)
       const primaryUrl = `https://telegraph-onchain-tx-lookup-miner.onrender.com/crypto-price?coin_id=${encodeURIComponent(
         cleanedCoinId,
       )}`;
@@ -86,12 +86,12 @@ export class TelegraphClient {
         const data = await res.json();
         return {
           ...data,
-          miner_id: '99',
-          miner_name: 'Telegraph Onchain Lookup & Price Miner',
+          miner_id: '9002',
+          miner_name: 'TxLens',
         };
       }
 
-      // Fallback: AgentFeed Base & Crypto Prices
+      // Fallback: AgentFeed Base & Crypto Prices (Miner #20260829)
       const fallbackUrl = `https://x402.ochinimus.app/crypto-price?coin_id=${encodeURIComponent(cleanedCoinId)}`;
       const fbRes = await fetch(fallbackUrl, { signal: controller.signal });
       if (fbRes.ok) {
@@ -118,7 +118,7 @@ export class TelegraphClient {
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      // Primary miner for TVL_LOOKUP: Telegraph Onchain Lookup Miner (Rank 1)
+      // Primary miner for TVL_LOOKUP: TxLens (Miner #9002 in Telegraph Registry)
       const primaryUrl = `https://telegraph-onchain-tx-lookup-miner.onrender.com/tvl?protocol=${encodeURIComponent(
         cleaned,
       )}`;
@@ -128,12 +128,12 @@ export class TelegraphClient {
         const data = await res.json();
         return {
           ...data,
-          miner_id: '99',
-          miner_name: 'Telegraph TVL Miner',
+          miner_id: '9002',
+          miner_name: 'TxLens',
         };
       }
 
-      // Fallback: TVL Oracle Wire
+      // Fallback: TVL Oracle Wire (Miner #301)
       const fallbackUrl = `https://tvlwire.shadrakbessanh.me/tvl?protocol=${encodeURIComponent(cleaned)}`;
       const fbRes = await fetch(fallbackUrl, { signal: controller.signal });
       if (fbRes.ok) {
@@ -160,7 +160,7 @@ export class TelegraphClient {
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      // Try Telegraph Onchain Lookup Miner
+      // Primary miner for GAS_PRICE: TxLens (Miner #9002 in Telegraph Registry)
       const primaryUrl = `https://telegraph-onchain-tx-lookup-miner.onrender.com/gas-price?chain=${encodeURIComponent(
         cleaned,
       )}`;
@@ -170,12 +170,12 @@ export class TelegraphClient {
         const data = await res.json();
         return {
           ...data,
-          miner_id: '99',
-          miner_name: 'Telegraph Onchain Gas Miner',
+          miner_id: '9002',
+          miner_name: 'TxLens',
         };
       }
 
-      // Fallback: GasWire EVM Fees
+      // Fallback: GasWire EVM Fees (Miner #7301)
       const network = cleaned === 'eth' ? 'ethereum' : cleaned;
       const fbUrl = `https://telegraph-gas.margyn.workers.dev/gas/${encodeURIComponent(network)}`;
       const fbRes = await fetch(fbUrl, { signal: controller.signal });

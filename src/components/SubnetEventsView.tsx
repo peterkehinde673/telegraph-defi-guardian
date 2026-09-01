@@ -80,12 +80,24 @@ export const SubnetEventsView: React.FC<SubnetEventsViewProps> = ({
                     {resStr}
                   </div>
 
-                  {/* Cryptographic Proof and Miner ID */}
+                  {/* Cryptographic Proof and Submitter / Miner Attribution */}
                   <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1">
                     <div className="flex items-center gap-2">
-                      <span>Miner ID: <strong className="text-slate-200">#{evt.miner_id || '99'}</strong></span>
+                      {evt.submitter && (
+                        <span>
+                          Submitter: <strong className="text-slate-200">{evt.submitter.slice(0, 8)}...{evt.submitter.slice(-4)}</strong>
+                        </span>
+                      )}
+                      {evt.miner_id && (
+                        <span>
+                          Miner ID: <strong className="text-slate-200">#{evt.miner_id}</strong>
+                        </span>
+                      )}
                       {evt.miner_name && (
                         <span className="text-slate-500">({evt.miner_name})</span>
+                      )}
+                      {evt.blocknumber != null && (
+                        <span className="text-slate-500">Block #{evt.blocknumber}</span>
                       )}
                     </div>
                     {evt.id && (

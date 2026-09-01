@@ -61,8 +61,8 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || raw.miner_id || '99',
-      minerName: minerMeta.minerName || raw.miner_name || 'Telegraph Onchain Miner',
+      minerId: minerMeta.minerId || raw.miner_id || '9002',
+      minerName: minerMeta.minerName || raw.miner_name || 'TxLens',
       slug: minerMeta.slug,
       protocol: 'generic',
     };
@@ -110,8 +110,8 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || raw.miner_id || '99',
-      minerName: minerMeta.minerName || raw.miner_name || 'Telegraph TVL Miner',
+      minerId: minerMeta.minerId || raw.miner_id || '9002',
+      minerName: minerMeta.minerName || raw.miner_name || 'TxLens',
       slug: minerMeta.slug,
       protocol: 'generic',
     };
@@ -160,8 +160,8 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || raw.miner_id || '99',
-      minerName: minerMeta.minerName || raw.miner_name || 'Telegraph Gas Miner',
+      minerId: minerMeta.minerId || raw.miner_id || '9002',
+      minerName: minerMeta.minerName || raw.miner_name || 'TxLens',
       slug: minerMeta.slug,
       protocol: 'generic',
     };
@@ -219,9 +219,9 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || '99',
-      minerName: minerMeta.minerName || 'Telegraph Sentinel Risk Miner',
-      slug: 'sentinel-risk-oracle',
+      minerId: minerMeta.minerId || '9002',
+      minerName: minerMeta.minerName || 'TxLens',
+      slug: 'txlens',
       protocol: 'generic',
     };
 
@@ -281,8 +281,8 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || '99',
-      minerName: minerMeta.minerName || 'Telegraph Knowledge Miner',
+      minerId: minerMeta.minerId || '9002',
+      minerName: minerMeta.minerName || 'TxLens',
       protocol: 'generic',
     };
 
@@ -329,8 +329,8 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || '99',
-      minerName: minerMeta.minerName || 'Telegraph Onchain Tx Miner',
+      minerId: minerMeta.minerId || '9002',
+      minerName: minerMeta.minerName || 'TxLens',
       protocol: 'generic',
     };
 
@@ -376,8 +376,8 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || '99',
-      minerName: minerMeta.minerName || 'Telegraph Token Holder Miner',
+      minerId: minerMeta.minerId || '9002',
+      minerName: minerMeta.minerName || 'TxLens',
       protocol: 'generic',
     };
 
@@ -423,8 +423,8 @@ export class TelegraphNormalizer {
     };
 
     const attribution: MinerAttribution = {
-      minerId: minerMeta.minerId || '99',
-      minerName: minerMeta.minerName || 'Telegraph SSL Handshake Miner',
+      minerId: minerMeta.minerId || '9002',
+      minerName: minerMeta.minerName || 'TxLens',
       protocol: 'generic',
     };
 

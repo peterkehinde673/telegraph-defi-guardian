@@ -28,8 +28,8 @@ export class TelegraphIntelligenceService {
   async getCryptoPrice(coinId: string): Promise<NormalizedSignal<NormalizedCryptoPrice>> {
     const raw = await this.client.requestCryptoPrice(coinId);
     return TelegraphNormalizer.normalizeCryptoPrice(raw, {
-      minerId: raw.miner_id || '99',
-      minerName: raw.miner_name || 'Telegraph Onchain Lookup Miner',
+      minerId: raw.miner_id || '9002',
+      minerName: raw.miner_name || 'TxLens',
     });
   }
 
@@ -39,8 +39,8 @@ export class TelegraphIntelligenceService {
   async getTVL(protocolOrChain: string): Promise<NormalizedSignal<NormalizedTVL>> {
     const raw = await this.client.requestTVLLookup(protocolOrChain);
     return TelegraphNormalizer.normalizeTVL(raw, {
-      minerId: raw.miner_id || '99',
-      minerName: raw.miner_name || 'Telegraph TVL Miner',
+      minerId: raw.miner_id || '9002',
+      minerName: raw.miner_name || 'TxLens',
     });
   }
 
@@ -50,8 +50,8 @@ export class TelegraphIntelligenceService {
   async getGasPrice(chain = 'eth'): Promise<NormalizedSignal<NormalizedGasPrice>> {
     const raw = await this.client.requestGasPrice(chain);
     return TelegraphNormalizer.normalizeGasPrice(raw, {
-      minerId: raw.miner_id || '99',
-      minerName: raw.miner_name || 'Telegraph Gas Miner',
+      minerId: raw.miner_id || '9002',
+      minerName: raw.miner_name || 'TxLens',
     });
   }
 
@@ -71,8 +71,8 @@ export class TelegraphIntelligenceService {
       }
       const raw = await res.json();
       return TelegraphNormalizer.normalizeWalletAssessment(raw, {
-        minerId: '99',
-        minerName: 'Telegraph Sentinel Risk Miner',
+        minerId: '9002',
+        minerName: 'TxLens',
       });
     } finally {
       clearTimeout(timeout);
@@ -97,8 +97,8 @@ export class TelegraphIntelligenceService {
       }
       const raw = await res.json();
       return TelegraphNormalizer.normalizeFraudQuery({ ...raw, query }, {
-        minerId: '99',
-        minerName: 'Telegraph Knowledge & Fraud Miner',
+        minerId: '9002',
+        minerName: 'TxLens',
       });
     } finally {
       clearTimeout(timeout);
@@ -121,8 +121,8 @@ export class TelegraphIntelligenceService {
       }
       const raw = await res.json();
       return TelegraphNormalizer.normalizeTxLookup(raw, {
-        minerId: '99',
-        minerName: 'Telegraph Onchain Tx Miner',
+        minerId: '9002',
+        minerName: 'TxLens',
       });
     } finally {
       clearTimeout(timeout);
@@ -145,8 +145,8 @@ export class TelegraphIntelligenceService {
       }
       const raw = await res.json();
       return TelegraphNormalizer.normalizeTokenHolders(raw, {
-        minerId: '99',
-        minerName: 'Telegraph Token Distribution Miner',
+        minerId: '9002',
+        minerName: 'TxLens',
       });
     } finally {
       clearTimeout(timeout);
@@ -169,8 +169,8 @@ export class TelegraphIntelligenceService {
       }
       const raw = await res.json();
       return TelegraphNormalizer.normalizeSSLCheck(raw, {
-        minerId: '99',
-        minerName: 'Telegraph SSL Handshake Miner',
+        minerId: '9002',
+        minerName: 'TxLens',
       });
     } finally {
       clearTimeout(timeout);

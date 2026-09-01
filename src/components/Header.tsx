@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
       : typeof pubKey === 'string' && pubKey.length > 0
       ? pubKey
       : 'Connecting...';
-  const minersCount = overview?.miners?.length ?? 105;
+  const minersCount = overview?.miners?.length ?? (isLoadingOverview ? '...' : 0);
   const eventsCount = overview?.liveSubnetEvents?.length ?? 0;
 
   return (
@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
                   TELEGRAPH <span className="text-emerald-400">DeFi Guardian</span>
                 </span>
                 <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
-                  MAINNET-VERIFIED
+                  BASE-SEPOLIA SUBNET
                 </span>
               </div>
               <p className="text-xs text-slate-400">

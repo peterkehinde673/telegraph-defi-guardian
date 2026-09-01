@@ -1,0 +1,6 @@
+{
+  "name": "Telegraph DeFi Guardian",
+  "description": "Professional DeFi intelligence and risk assessment platform powered by real Telegraph Protocol Miners and verified on-chain signals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

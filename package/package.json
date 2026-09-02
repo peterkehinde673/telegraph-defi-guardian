@@ -1,0 +1,66 @@
+{
+  "name": "telegraph-protocol-mcp",
+  "version": "1.0.0",
+  "description": "MCP server exposing Telegraph Protocol AI miners (weather, deepfake detection, LLMs, AI-text detection, signals) as tools with automatic x402 USDC micropayments",
+  "mcpName": "io.github.telegraphprotocol/telegraph",
+  "main": "dist/index.js",
+  "bin": {
+    "telegraph-protocol-mcp": "dist/index.js"
+  },
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/telegraphprotocol/telegraph-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/telegraphprotocol/telegraph-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/telegraphprotocol/telegraph-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "telegraph",
+    "ai-inference",
+    "x402",
+    "bittensor",
+    "usdc",
+    "agent-payments",
+    "deepfake-detection",
+    "weather",
+    "llm",
+    "web3"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    ".agents"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "inspect": "npx @modelcontextprotocol/inspector dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@x402/fetch": "^2.11.0",
+    "@x402/evm": "^2.11.0",
+    "@x402/svm": "^2.11.0",
+    "@x402/core": "^2.11.0",
+    "viem": "^2.21.0",
+    "@solana/kit": "^6.0.0",
+    "@scure/base": "^1.1.0",
+    "zod": "^3.25.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0"
+  }
+}

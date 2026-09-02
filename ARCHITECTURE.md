@@ -1,6 +1,6 @@
 # System Architecture: Telegraph DeFi Guardian
 
-> Comprehensive technical blueprint of the Telegraph DeFi Guardian platform, detailing data flow, normalization logic, deterministic risk scoring, and miner attestation.
+> Comprehensive technical blueprint of the Telegraph DeFi Guardian platform, detailing data flow, normalization logic, deterministic risk scoring, and dynamic miner attestation.
 
 ---
 
@@ -21,13 +21,12 @@
             (2. Concurrency)  │                 │ (3. Network Telemetry)
                               ▼                 ▼
   ┌─────────────────────────────────┐      ┌─────────────────────────────────┐
-  │   REGISTERED TELEGRAPH MINERS   │      │     TELEGRAPH PROTOCOL NODE     │
-  │ • Miner #9002: TxLens (Price)   │      │ • GET /status (Node Public Key) │
-  │ • Miner #9002: TxLens (TVL)     │      │ • GET / (SubnetResponse Stream) │
-  │ • Miner #9002: TxLens (Gas)     │      │ • GET /miner-dispatcher/miners  │
-  │ • Miner #9002: TxLens (Fraud)   │      └────────────────┬────────────────┘
-  │ • Miner #9002: TxLens (Holders) │                       │
-  │ • Miner #9002: TxLens (SSL)     │                       │
+  │   DYNAMIC MINER ROUTING ENGINE  │      │     TELEGRAPH PROTOCOL NODE     │
+  │ • Queries Dispatcher Integrations│     │ • GET /status (Node Public Key) │
+  │ • Filters active intent miners  │      │ • GET / (SubnetResponse Stream) │
+  │ • Ranks miners by subnet score  │      │ • GET /miner-dispatcher/integr. │
+  │ • Dispatches to miner base URL  │      └────────────────┬────────────────┘
+  │ • Attaches authentic attribution│                       │
   └────────────────┬────────────────┘                       │
                    │                                        │
                    │ (4. Raw Attested Payloads)             │
@@ -38,7 +37,7 @@
   │ • Schema validation & field type checking              ││
   │ • Canonical proof hashing                              ││
   │ • Range clamping & multi-source spread calculation     ││
-  │ • Miner ID & Name attribution                          ││
+  │ • Authentic Miner ID & Name attribution                ││
   └────────────────┬───────────────────────────────────────┘│
                    │                                        │
                    │ (5. Normalized Intelligence Bundle)    │
@@ -76,8 +75,8 @@
 
 | File / Directory | Purpose & Responsibility |
 | :--- | :--- |
-| `server.ts` | Main Express server entry point. Configures CORS, sets up `/api/telegraph/*` endpoints with 15s timeouts, mounts Vite in dev mode, and serves built assets in production. |
-| `server/telegraph/client.ts` | Low-level HTTP client interfacing with `TELEGRAPH_NODE_URL` and active miner endpoints. Handles parameter encoding, timeout aborts, and network error classification. |
+| `server.ts` | Main Express server entry point. Configures CORS, sets up `/api/telegraph/*` endpoints with timeouts, mounts Vite in dev mode, and serves built assets in production. |
+| `server/telegraph/client.ts` | Dynamic Telegraph Application Consumer client interfacing with `TELEGRAPH_NODE_URL`. Dynamically discovers active miners via `/miner-dispatcher/integrations`, sorts by subnet score/rank, routes intent requests, and captures authentic miner metadata. |
 | `server/telegraph/service.ts` | High-level Telegraph orchestration service that coordinates multi-intent queries, orchestrates parallel miner calls, and maps outputs through the normalizer. |
 | `server/telegraph/normalizer.ts` | Sanitizes all raw miner responses into strict, strongly typed canonical interfaces. Extracts prices, calculates spread percentages, validates SSL domains, and produces deterministic hashes. |
 | `server/telegraph/types.ts` | Core TypeScript interfaces defining raw miner responses, normalized intelligence signals, and network overview structures. |
@@ -98,34 +97,17 @@
 | `src/components/RiskScoreGauge.tsx` | Visual SVG arc gauge rendering the 0–100 risk score, risk classification badge, and confidence percentage. |
 | `src/components/SignalCardsGrid.tsx` | Grid of cards displaying verified signals for Market Price, Protocol TVL, Gas Execution, Wallet Fraud, Token Holders, and SSL Infrastructure. |
 | `src/components/EvidenceAttributionTable.tsx` | Audit table mapping every risk factor to its Telegraph Intent, attested Miner ID/Name, canonical proof hash, and mathematical weight contribution. |
-| `src/components/CalculationsExplorer.tsx` | Interactive breakdown of category weight distributions, intermediate calculations (e.g. Mcap/TVL, Collateral Cushion), and missing data disclosures. |
-| `src/components/SubnetEventsView.tsx` | Real-time explorer for signed `SubnetResponse` transactions emitted by the Telegraph Node on Base-Sepolia. |
-| `src/components/MinersRegistryView.tsx` | Searchable directory of all registered Telegraph Miners, their supported intents, and endpoint URLs. |
-| `src/components/AnalysisHistory.tsx` | Session history drawer enabling quick reload of previous audit runs. |
-| `src/components/RawIntelligenceViewer.tsx` | JSON payload inspector allowing developers to view and copy raw attested data structures. |
-| `src/components/HowItWorksView.tsx` | Educational documentation panel explaining Telegraph miner verification and risk score formulation. |
+| `src/components/CategoryBreakdownView.tsx` | Detailed breakdown of each risk dimension with active weight bars, signal presence indicators, and penalty notes. |
+| `src/components/DerivedMetricsPanel.tsx` | Displays transparent intermediate mathematical values (Mcap/TVL, estimated transfer cost, price spread percentage, raw signal counts). |
+| `src/components/SubnetEventsView.tsx` | Real-time explorer for cryptographic `SubnetResponse` on-chain events emitted on Base-Sepolia. |
+| `src/components/MinersRegistryView.tsx` | Interactive registry table of all active miners registered on the Telegraph Node with supported intents and endpoints. |
+| `src/components/SessionHistoryView.tsx` | Side panel storing past DeFi Risk assessments for review, re-evaluation, and JSON export. |
+| `src/components/HowItWorksModal.tsx` | Educational guide explaining Telegraph Protocol intents, scoring equations, and cryptographic validation. |
 
 ---
 
-## 3. Data Transformation & Normalization Pipeline
+## 3. Data Integrity & Verification
 
-Raw data from external miners often varies in schema formatting, precision, and nullability. The `TelegraphNormalizer` enforces strict determinism before data enters the risk engine:
-
-1. **Sanitization**: All string values are trimmed, numbers are clamped to non-negative ranges, and timestamps are standardized to ISO 8601 UTC.
-2. **Canonical Proof Generation**: Creates an unforgeable identifier string from the entity and raw metric (e.g., `coin_id:ethereum:2415.57` or `wallet_risk:0xd8dA6...:0.10`).
-3. **Multi-Source Spread Checking**: When a miner returns multiple feeds (e.g. CoinPaprika + DefiLlama), computes:
-   $$\text{Spread \%} = \frac{\text{High Price} - \text{Low Price}}{\text{Average Price}} \times 100$$
-4. **Attribution Binding**: Attaches originating `minerId`, `minerName`, and miner endpoint to the output signal.
-
----
-
-## 4. Verification & Testing Pipeline
-
-The repository provides automated test scripts under `/scripts`:
-
-```
-scripts/
-├── test-telegraph.ts      # Verifies raw connection to node and miners
-├── test-normalization.ts  # Verifies sanitization of all 8 supported intents
-└── test-risk-engine.ts    # Verifies scoring formulas, edge cases & real multi-intent bundles
-```
+1. **Deterministic Processing**: All calculations in `deFiRiskEngine` are pure functions without external non-deterministic side-effects.
+2. **Authentic Provenance**: Intelligence attribution traces directly back to the registered miner ID, rank, and declared endpoint path in the Telegraph Node registry.
+3. **Graceful Handling of Missing Intelligence**: When miners are unavailable, explicit uncertainty penalties are applied while preserving the auditability of the report.

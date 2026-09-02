@@ -208,7 +208,8 @@ async function runRiskEngineTests() {
 
     assert(report.applicationInterpretation.riskClassification === 'LOW' || report.applicationInterpretation.riskClassification === 'MODERATE', 'Bluechip ETH/Uniswap ecosystem must be LOW or MODERATE risk');
     assert(report.applicationInterpretation.confidenceScore >= 0.85, 'Confidence must be high with 5 verified signals');
-    assert(report.derivedCalculations.marketCapToTvlRatio !== null, 'Calculates Mcap/TVL ratio deterministically');
+    assert(report.derivedCalculations.normalizedFinalScore === report.applicationInterpretation.overallRiskScore, 'Derived calculations must match overall score');
+    assert(report.derivedCalculations.rawSignalCount >= 4, 'Must register at least 4 raw signals');
     assert(report.applicationInterpretation.evidenceAttribution.length >= 4, 'Must attribute all active miners');
     passed++;
   } catch (err: any) {

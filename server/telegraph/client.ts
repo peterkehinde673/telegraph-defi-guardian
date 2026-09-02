@@ -1,23 +1,29 @@
 import {
-  CryptoPriceSignal,
-  GasSignal,
+  MinerAttribution,
+  TelegraphEndpoint,
+  TelegraphIntent,
   TelegraphMinerIntegration,
   TelegraphNodeStatus,
   TelegraphSubnetResponseEvent,
-  TVLSignal,
 } from './types.ts';
 
 export class TelegraphClient {
   private nodeUrl: string;
   private timeoutMs: number;
+  private cachedMiners: TelegraphMinerIntegration[] | null = null;
+  private minersCachedAt = 0;
+  private readonly CACHE_TTL_MS = 60_000; // 60s cache for node registry
 
-  constructor(nodeUrl = process.env.TELEGRAPH_NODE_URL || 'https://devnode.telegraphprotocol.com', timeoutMs = 15000) {
+  constructor(
+    nodeUrl = process.env.TELEGRAPH_NODE_URL || 'https://devnode.telegraphprotocol.com',
+    timeoutMs = 15000,
+  ) {
     this.nodeUrl = nodeUrl.replace(/\/$/, '');
     this.timeoutMs = timeoutMs;
   }
 
   /**
-   * Fetches the current node status, public key, and network identity.
+   * Fetches the current node status, public key, and network identity from the Telegraph Node.
    */
   async getNodeStatus(): Promise<TelegraphNodeStatus> {
     const controller = new AbortController();
@@ -51,9 +57,14 @@ export class TelegraphClient {
   }
 
   /**
-   * Fetches the live registry of all active Telegraph miners, their supported intents, rankings, and endpoints.
+   * Fetches the live registry of all active Telegraph miners from the Telegraph Node miner-dispatcher.
    */
-  async getMinerIntegrations(): Promise<TelegraphMinerIntegration[]> {
+  async getMinerIntegrations(forceRefresh = false): Promise<TelegraphMinerIntegration[]> {
+    const now = Date.now();
+    if (!forceRefresh && this.cachedMiners && now - this.minersCachedAt < this.CACHE_TTL_MS) {
+      return this.cachedMiners;
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -61,143 +72,260 @@ export class TelegraphClient {
       if (!res.ok) {
         throw new Error(`Telegraph miner-dispatcher returned HTTP ${res.status}`);
       }
-      return await res.json();
+      const data: TelegraphMinerIntegration[] = await res.json();
+      this.cachedMiners = data;
+      this.minersCachedAt = now;
+      return data;
     } finally {
       clearTimeout(timeout);
     }
   }
 
   /**
-   * Dispatches a real request to the top-ranked Telegraph Miner for CRYPTO_PRICE.
+   * Dynamically filters and ranks registered active Telegraph miners for a given intent.
    */
-  async requestCryptoPrice(coinId: string): Promise<CryptoPriceSignal> {
-    const cleanedCoinId = coinId.trim().toLowerCase();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+  async getMinersForIntent(intent: TelegraphIntent): Promise<TelegraphMinerIntegration[]> {
+    const miners = await this.getMinerIntegrations();
+    const active = miners.filter(
+      (m) =>
+        (m.activation_status === 'active' || !m.activation_status) &&
+        Array.isArray(m.supported_intents) &&
+        m.supported_intents.includes(intent),
+    );
 
-    try {
-      // Primary miner for CRYPTO_PRICE: TxLens (Miner #9002 in Telegraph Registry)
-      const primaryUrl = `https://telegraph-onchain-tx-lookup-miner.onrender.com/crypto-price?coin_id=${encodeURIComponent(
-        cleanedCoinId,
-      )}`;
-      const res = await fetch(primaryUrl, { signal: controller.signal });
+    // Sort by official Telegraph rank ascending (rank 1 is best)
+    active.sort((a, b) => {
+      const scoreA = a.scores?.find((s) => s.intent_id === intent)?.rank ?? 9999;
+      const scoreB = b.scores?.find((s) => s.intent_id === intent)?.rank ?? 9999;
+      return scoreA - scoreB;
+    });
 
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          ...data,
-          miner_id: '9002',
-          miner_name: 'TxLens',
-        };
-      }
-
-      // Fallback: AgentFeed Base & Crypto Prices (Miner #20260829)
-      const fallbackUrl = `https://x402.ochinimus.app/crypto-price?coin_id=${encodeURIComponent(cleanedCoinId)}`;
-      const fbRes = await fetch(fallbackUrl, { signal: controller.signal });
-      if (fbRes.ok) {
-        const fbData = await fbRes.json();
-        return {
-          ...fbData,
-          miner_id: '20260829',
-          miner_name: 'AgentFeed Base & Crypto Prices',
-        };
-      }
-
-      throw new Error(`Telegraph Miners for CRYPTO_PRICE failed with status: ${res.status}`);
-    } finally {
-      clearTimeout(timeout);
-    }
+    return active;
   }
 
   /**
-   * Dispatches a real request to the top-ranked Telegraph Miner for TVL_LOOKUP.
+   * Selects the most specific endpoint for an intent from a miner's registered endpoints.
    */
-  async requestTVLLookup(protocolOrChain: string): Promise<TVLSignal> {
+  private pickEndpoint(intent: TelegraphIntent, endpoints: TelegraphEndpoint[], isPost: boolean): TelegraphEndpoint | null {
+    if (!endpoints || endpoints.length === 0) return null;
+
+    const keywords: Record<TelegraphIntent, string[]> = {
+      CRYPTO_PRICE: ['crypto-price', 'price', 'ask'],
+      TVL_LOOKUP: ['tvl'],
+      GAS_PRICE: ['gas-price', 'gas'],
+      FRAUD_DETECTION: ['assess-wallet', 'fraud-query', 'fraud', 'risk'],
+      TOKEN_HOLDER_COUNT: ['token-holders', 'holders'],
+      SSL_VERIFICATION: ['ssl-check', 'ssl'],
+      ONCHAIN_TX_LOOKUP: ['check-tx', 'tx-lookup', 'tx'],
+      WALLET_BALANCE_CHECK: ['wallet-balance', 'balance'],
+      URL_SCAN: ['url-scan', 'urlscan', 'scan'],
+      WEB_SEARCH: ['web-search', 'search'],
+      RESEARCH_SYNTHESIS: ['research', 'papers'],
+      TEXT_GENERATION: ['chat', 'text', 'completions'],
+      AI_TEXT_DETECTION: ['ai-detect', 'ai_detect'],
+      STORM_ALERT: ['storm', 'alert'],
+      WEATHER_CHECK: ['weather-check', 'wcheck'],
+      WEATHER_FORECAST: ['weather-forecast', 'wforecast'],
+    };
+
+    const targetKeywords = keywords[intent] || [intent.toLowerCase()];
+
+    for (const kw of targetKeywords) {
+      const match = endpoints.find((e) => {
+        const pathLower = e.path.toLowerCase();
+        const methodMatch = isPost
+          ? e.method?.toUpperCase() === 'POST'
+          : e.method?.toUpperCase() === 'GET' || !e.method;
+        return methodMatch && pathLower.includes(kw);
+      });
+      if (match) return match;
+    }
+
+    return (
+      endpoints.find((e) =>
+        isPost ? e.method?.toUpperCase() === 'POST' : e.method?.toUpperCase() === 'GET' || !e.method,
+      ) || endpoints[0]
+    );
+  }
+
+  /**
+   * Dispatches an intent to the registered Telegraph Miners dynamically resolved from the Telegraph Node.
+   * Preserves authentic miner attribution and avoids any hardcoded miner URLs or manufactured IDs.
+   */
+  async dispatchIntent<T = any>(
+    intent: TelegraphIntent,
+    params: Record<string, any>,
+    isPost = false,
+  ): Promise<{ raw: T; minerMeta: MinerAttribution }> {
+    const miners = await this.getMinersForIntent(intent);
+
+    if (miners.length === 0) {
+      throw new Error(`No active Telegraph miners registered for intent: ${intent}`);
+    }
+
+    let lastError: Error | null = null;
+
+    for (const miner of miners) {
+      if (!miner.base_url) continue;
+
+      const endpoint = this.pickEndpoint(intent, miner.endpoints || [], isPost);
+      if (!endpoint) continue;
+
+      const baseUrl = miner.base_url.replace(/\/$/, '');
+      const rawPath = endpoint.path.startsWith('/') ? endpoint.path : `/${endpoint.path}`;
+      let fullUrl = `${baseUrl}${rawPath}`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
+      try {
+        const fetchOptions: RequestInit = {
+          signal: controller.signal,
+        };
+
+        if (isPost || endpoint.method?.toUpperCase() === 'POST') {
+          fetchOptions.method = 'POST';
+          fetchOptions.headers = { 'Content-Type': 'application/json' };
+          fetchOptions.body = JSON.stringify(params);
+        } else {
+          fetchOptions.method = 'GET';
+          const queryParams = new URLSearchParams();
+          for (const [k, v] of Object.entries(params)) {
+            if (v !== undefined && v !== null) {
+              queryParams.set(k, String(v));
+            }
+          }
+          const qs = queryParams.toString();
+          if (qs) {
+            fullUrl += (fullUrl.includes('?') ? '&' : '?') + qs;
+          }
+        }
+
+        const res = await fetch(fullUrl, fetchOptions);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const rawData = await res.json();
+        const scoreObj = miner.scores?.find((s) => s.intent_id === intent);
+
+        const minerMeta: MinerAttribution = {
+          minerId: miner.id,
+          minerName: miner.name,
+          slug: miner.slug,
+          walletAddress: miner.wallet_address,
+          rank: scoreObj?.rank,
+          score: scoreObj?.score,
+          protocol: miner.protocol || 'telegraph-subnet',
+          endpoint: `${endpoint.method?.toUpperCase() || 'GET'} ${rawPath}`,
+        };
+
+        return {
+          raw: rawData,
+          minerMeta,
+        };
+      } catch (err: any) {
+        lastError = err;
+        // Continue to the next ranked miner in the Telegraph registry
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    throw new Error(
+      `All registered Telegraph miners for intent ${intent} failed. Last error: ${lastError?.message || 'Unknown error'}`,
+    );
+  }
+
+  /**
+   * Dispatches CRYPTO_PRICE intent through dynamically resolved Telegraph Miners.
+   */
+  async requestCryptoPrice(coinId: string): Promise<{ raw: any; minerMeta: MinerAttribution }> {
+    const cleaned = coinId.trim().toLowerCase();
+    return this.dispatchIntent('CRYPTO_PRICE', {
+      coin_id: cleaned,
+      query: cleaned,
+      symbol: cleaned.toUpperCase(),
+    });
+  }
+
+  /**
+   * Dispatches TVL_LOOKUP intent through dynamically resolved Telegraph Miners.
+   */
+  async requestTVLLookup(protocolOrChain: string): Promise<{ raw: any; minerMeta: MinerAttribution }> {
     const cleaned = protocolOrChain.trim().toLowerCase();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-
-    try {
-      // Primary miner for TVL_LOOKUP: TxLens (Miner #9002 in Telegraph Registry)
-      const primaryUrl = `https://telegraph-onchain-tx-lookup-miner.onrender.com/tvl?protocol=${encodeURIComponent(
-        cleaned,
-      )}`;
-      const res = await fetch(primaryUrl, { signal: controller.signal });
-
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          ...data,
-          miner_id: '9002',
-          miner_name: 'TxLens',
-        };
-      }
-
-      // Fallback: TVL Oracle Wire (Miner #301)
-      const fallbackUrl = `https://tvlwire.shadrakbessanh.me/tvl?protocol=${encodeURIComponent(cleaned)}`;
-      const fbRes = await fetch(fallbackUrl, { signal: controller.signal });
-      if (fbRes.ok) {
-        const fbData = await fbRes.json();
-        return {
-          ...fbData,
-          miner_id: '301',
-          miner_name: 'TVL Oracle Wire',
-        };
-      }
-
-      throw new Error(`Telegraph Miners for TVL_LOOKUP failed with status: ${res.status}`);
-    } finally {
-      clearTimeout(timeout);
-    }
+    return this.dispatchIntent('TVL_LOOKUP', {
+      protocol: cleaned,
+      query: cleaned,
+    });
   }
 
   /**
-   * Dispatches a real request to the Telegraph Miner for GAS_PRICE.
+   * Dispatches GAS_PRICE intent through dynamically resolved Telegraph Miners.
    */
-  async requestGasPrice(chain = 'eth'): Promise<GasSignal> {
+  async requestGasPrice(chain = 'eth'): Promise<{ raw: any; minerMeta: MinerAttribution }> {
     const cleaned = chain.trim().toLowerCase();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    return this.dispatchIntent('GAS_PRICE', {
+      chain: cleaned,
+      network: cleaned === 'eth' ? 'ethereum' : cleaned,
+    });
+  }
 
-    try {
-      // Primary miner for GAS_PRICE: TxLens (Miner #9002 in Telegraph Registry)
-      const primaryUrl = `https://telegraph-onchain-tx-lookup-miner.onrender.com/gas-price?chain=${encodeURIComponent(
-        cleaned,
-      )}`;
-      const res = await fetch(primaryUrl, { signal: controller.signal });
+  /**
+   * Dispatches FRAUD_DETECTION (wallet risk) intent through dynamically resolved Telegraph Miners.
+   */
+  async requestWalletAssessment(wallet: string, chain = 'eth'): Promise<{ raw: any; minerMeta: MinerAttribution }> {
+    const cleanedWallet = wallet.trim();
+    return this.dispatchIntent('FRAUD_DETECTION', {
+      wallet: cleanedWallet,
+      address: cleanedWallet,
+      chain,
+    });
+  }
 
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          ...data,
-          miner_id: '9002',
-          miner_name: 'TxLens',
-        };
-      }
+  /**
+   * Dispatches FRAUD_DETECTION (knowledge query) intent through dynamically resolved Telegraph Miners.
+   */
+  async requestFraudQuery(query: string): Promise<{ raw: any; minerMeta: MinerAttribution }> {
+    return this.dispatchIntent(
+      'FRAUD_DETECTION',
+      {
+        query: query.trim(),
+      },
+      true,
+    );
+  }
 
-      // Fallback: GasWire EVM Fees (Miner #7301)
-      const network = cleaned === 'eth' ? 'ethereum' : cleaned;
-      const fbUrl = `https://telegraph-gas.margyn.workers.dev/gas/${encodeURIComponent(network)}`;
-      const fbRes = await fetch(fbUrl, { signal: controller.signal });
-      if (fbRes.ok) {
-        const fbData = await fbRes.json();
-        return {
-          chain: fbData.network || cleaned,
-          status: 'ok',
-          summary: fbData.summary,
-          confidence: fbData.confidence || 0.95,
-          gas_price_wei: fbData.gas_price_wei,
-          gas_price_gwei: fbData.gas_price_gwei,
-          as_of: fbData.as_of || new Date().toISOString(),
-          miner_id: '7301',
-          miner_name: 'GasWire EVM Fee Oracle',
-        };
-      }
+  /**
+   * Dispatches ONCHAIN_TX_LOOKUP intent through dynamically resolved Telegraph Miners.
+   */
+  async requestTxLookup(txHash: string, chain = 'eth'): Promise<{ raw: any; minerMeta: MinerAttribution }> {
+    return this.dispatchIntent('ONCHAIN_TX_LOOKUP', {
+      tx_hash: txHash.trim(),
+      chain,
+    });
+  }
 
-      throw new Error(`Telegraph Miners for GAS_PRICE failed with status: ${res.status}`);
-    } finally {
-      clearTimeout(timeout);
-    }
+  /**
+   * Dispatches TOKEN_HOLDER_COUNT intent through dynamically resolved Telegraph Miners.
+   */
+  async requestTokenHolders(tokenAddress: string, chain = 'eth'): Promise<{ raw: any; minerMeta: MinerAttribution }> {
+    const cleaned = tokenAddress.trim();
+    return this.dispatchIntent('TOKEN_HOLDER_COUNT', {
+      token: cleaned,
+      address: cleaned,
+      chain,
+    });
+  }
+
+  /**
+   * Dispatches SSL_VERIFICATION intent through dynamically resolved Telegraph Miners.
+   */
+  async requestSSLCheck(domain: string): Promise<{ raw: any; minerMeta: MinerAttribution }> {
+    return this.dispatchIntent('SSL_VERIFICATION', {
+      domain: domain.trim(),
+      query: domain.trim(),
+    });
   }
 }
 

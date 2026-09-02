@@ -1,86 +1,136 @@
 import { telegraphClient } from '../server/telegraph/client.ts';
+import { telegraphService } from '../server/telegraph/service.ts';
 
 async function main() {
-  console.log('====================================================');
-  console.log('Testing Telegraph Protocol End-to-End Integration');
-  console.log('====================================================\n');
+  console.log('================================================================');
+  console.log('Telegraph Protocol Track 3 Application Consumer Verification');
+  console.log('================================================================\n');
 
+  let passed = 0;
+  let failed = 0;
+
+  // 1. Telegraph Node Status
+  console.log('1. Querying Official Telegraph Node Status...');
   try {
-    console.log('1. Querying Telegraph Node Status...');
     const status = await telegraphClient.getNodeStatus();
-    console.log('✅ Node Status response received:');
+    if (!status || !status.publicKey) {
+      throw new Error('Invalid node status response format');
+    }
+    console.log('✅ Connected to Telegraph Node:');
     console.log(`   Public Key: ${status.publicKey}`);
     console.log(`   Signer: ${status.signer || 'Null / Ready'}\n`);
+    passed++;
   } catch (err: any) {
-    console.error('❌ Node Status error:', err.message);
+    console.error('❌ Telegraph Node Status lookup failed:', err.message);
+    failed++;
   }
 
+  // 2. Telegraph Miner Dispatcher Registry & Intent Discovery
+  console.log('2. Querying Live Telegraph Miner Dispatcher Registry...');
+  let activeIntents: string[] = [];
   try {
-    console.log('2. Querying Live Telegraph On-Chain Subnet Events...');
+    const miners = await telegraphClient.getMinerIntegrations();
+    if (!Array.isArray(miners) || miners.length === 0) {
+      throw new Error('Empty or invalid miner registry returned from Telegraph Node');
+    }
+    activeIntents = Array.from(new Set(miners.flatMap((m) => m.supported_intents || [])));
+    console.log(`✅ Retrieved ${miners.length} registered Telegraph Miners from Dispatcher.`);
+    console.log(`   Active Intents on Network: ${activeIntents.join(', ')}\n`);
+    passed++;
+  } catch (err: any) {
+    console.error('❌ Miner Dispatcher Registry lookup failed:', err.message);
+    failed++;
+  }
+
+  // 3. Dynamic Intent Dispatch & Normalization (CRYPTO_PRICE)
+  console.log('3. Testing Dynamic Intent Dispatch & Normalization: CRYPTO_PRICE (ethereum)...');
+  try {
+    const priceSignal = await telegraphService.getCryptoPrice('ethereum');
+    if (!priceSignal || !priceSignal.data || priceSignal.data.priceUsd <= 0) {
+      throw new Error('Invalid or empty CRYPTO_PRICE signal returned');
+    }
+    console.log('✅ Real Crypto Price received via dynamic Telegraph Miner routing:');
+    console.log(`   Signal ID: ${priceSignal.id}`);
+    console.log(`   Asset: ${priceSignal.data.symbol} (${priceSignal.data.assetId})`);
+    console.log(`   Price: $${priceSignal.data.priceUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`);
+    console.log(`   Confidence: ${priceSignal.confidence}`);
+    console.log(`   Sources Count: ${priceSignal.data.sourceCount}`);
+    console.log(`   Authentic Miner Attribution: ${priceSignal.attribution.minerName} (ID: ${priceSignal.attribution.minerId})`);
+    console.log(`   Miner Rank in Telegraph Subnet: ${priceSignal.attribution.rank ?? 'Registered'}`);
+    console.log(`   Dynamic Endpoint Used: ${priceSignal.attribution.endpoint || 'Declared Miner Endpoint'}\n`);
+    passed++;
+  } catch (err: any) {
+    console.error('❌ Dynamic CRYPTO_PRICE intent failed:', err.message);
+    failed++;
+  }
+
+  // 4. Dynamic Intent Dispatch & Normalization (TVL_LOOKUP)
+  console.log('4. Testing Dynamic Intent Dispatch & Normalization: TVL_LOOKUP (uniswap)...');
+  try {
+    const tvlSignal = await telegraphService.getTVL('uniswap');
+    if (!tvlSignal || !tvlSignal.data) {
+      throw new Error('Invalid TVL signal returned');
+    }
+    console.log('✅ Real TVL received via dynamic Telegraph Miner routing:');
+    console.log(`   Protocol: ${tvlSignal.data.protocolName}`);
+    console.log(`   TVL: $${tvlSignal.data.tvlUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`);
+    console.log(`   Authentic Miner Attribution: ${tvlSignal.attribution.minerName} (ID: ${tvlSignal.attribution.minerId})\n`);
+    passed++;
+  } catch (err: any) {
+    console.error('❌ Dynamic TVL_LOOKUP intent failed:', err.message);
+    failed++;
+  }
+
+  // 5. Dynamic Intent Dispatch & Normalization (GAS_PRICE)
+  console.log('5. Testing Dynamic Intent Dispatch & Normalization: GAS_PRICE (eth)...');
+  try {
+    const gasSignal = await telegraphService.getGasPrice('eth');
+    if (!gasSignal || !gasSignal.data) {
+      throw new Error('Invalid GAS_PRICE signal returned');
+    }
+    console.log('✅ Real Gas Price received via dynamic Telegraph Miner routing:');
+    console.log(`   Chain: ${gasSignal.data.chain}`);
+    console.log(`   Gas Price: ${gasSignal.data.gasPriceGwei.toFixed(4)} Gwei`);
+    console.log(`   Authentic Miner Attribution: ${gasSignal.attribution.minerName} (ID: ${gasSignal.attribution.minerId})\n`);
+    passed++;
+  } catch (err: any) {
+    console.error('❌ Dynamic GAS_PRICE intent failed:', err.message);
+    failed++;
+  }
+
+  // 6. Live Subnet Response Cryptographic Events
+  console.log('6. Querying Live Base-Sepolia Cryptographic Subnet Events...');
+  try {
     const events = await telegraphClient.getLiveSubnetResponses();
-    console.log(`✅ Retrieved ${events.length} live signed events from Base-Sepolia.`);
+    if (!Array.isArray(events)) {
+      throw new Error('Invalid events response array');
+    }
+    console.log(`✅ Retrieved ${events.length} signed on-chain events.`);
     if (events.length > 0) {
-      console.log(`   Sample Event ID: ${events[0].id}`);
-      console.log(`   Chain: ${events[0].startchain}`);
-      console.log(`   Event Type: ${events[0].event}`);
-      console.log(`   Response String: ${JSON.stringify(events[0].response_string)}`);
+      console.log(`   Latest Event ID: ${events[0].id}`);
+      console.log(`   Origin Chain: ${events[0].startchain}`);
+      console.log(`   Submitter: ${events[0].submitter}`);
     }
     console.log('');
+    passed++;
   } catch (err: any) {
-    console.error('❌ Live Events error:', err.message);
+    console.error('❌ Live Subnet Events query failed:', err.message);
+    failed++;
   }
 
-  try {
-    console.log('3. Querying Telegraph Miner Dispatcher Registry...');
-    const miners = await telegraphClient.getMinerIntegrations();
-    console.log(`✅ Retrieved ${miners.length} registered Telegraph Miners.`);
-    const intents = Array.from(new Set(miners.flatMap((m) => m.supported_intents)));
-    console.log(`   Available Intents: ${intents.join(', ')}\n`);
-  } catch (err: any) {
-    console.error('❌ Miner Registry error:', err.message);
+  console.log('================================================================');
+  if (failed > 0) {
+    console.error(`🚨 TELEGRAPH CONSUMER VERIFICATION FAILED: ${failed} check(s) failed, ${passed} passed.`);
+    console.error('Telegraph consumer integration unavailable or failing in this environment.');
+    process.exit(1);
+  } else {
+    console.log(`🎉 ALL ${passed} TELEGRAPH CONSUMER VERIFICATION CHECKS PASSED!`);
+    console.log('Telegraph DeFi Guardian is operating as a genuine Track 3 Application Consumer.');
+    console.log('================================================================');
   }
-
-  try {
-    console.log('4. Testing Real Telegraph Miner Intent: CRYPTO_PRICE (ethereum)...');
-    const price = await telegraphClient.requestCryptoPrice('ethereum');
-    console.log('✅ Real Crypto Price received from Telegraph Miner:');
-    console.log(`   Asset: ${price.symbol} (${price.query})`);
-    console.log(`   Price: $${price.price_usd.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`);
-    console.log(`   24h Change: ${price.change_24h_pct?.toFixed(2)}%`);
-    console.log(`   Market Cap: $${price.market_cap_usd?.toLocaleString('en-US')}`);
-    console.log(`   Sources: ${price.sources?.map((s) => `${s.source}: $${s.price_usd}`).join(', ')}`);
-    console.log(`   Attribution: Miner ID ${price.miner_id} (${price.miner_name})\n`);
-  } catch (err: any) {
-    console.error('❌ Crypto Price error:', err.message);
-  }
-
-  try {
-    console.log('5. Testing Real Telegraph Miner Intent: TVL_LOOKUP (uniswap)...');
-    const tvl = await telegraphClient.requestTVLLookup('uniswap');
-    console.log('✅ Real TVL received from Telegraph Miner:');
-    console.log(`   Protocol: ${tvl.protocol}`);
-    console.log(`   TVL: $${tvl.tvl_usd.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`);
-    console.log(`   Confidence: ${tvl.confidence}`);
-    console.log(`   Attribution: Miner ID ${tvl.miner_id} (${tvl.miner_name})\n`);
-  } catch (err: any) {
-    console.error('❌ TVL error:', err.message);
-  }
-
-  try {
-    console.log('6. Testing Real Telegraph Miner Intent: GAS_PRICE (eth)...');
-    const gas = await telegraphClient.requestGasPrice('eth');
-    console.log('✅ Real Gas Price received from Telegraph Miner:');
-    console.log(`   Chain: ${gas.chain}`);
-    console.log(`   Gas Price: ${gas.gas_price_gwei} Gwei`);
-    console.log(`   Summary: ${gas.summary}`);
-    console.log(`   Attribution: Miner ID ${gas.miner_id} (${gas.miner_name})\n`);
-  } catch (err: any) {
-    console.error('❌ Gas error:', err.message);
-  }
-
-  console.log('====================================================');
-  console.log('Telegraph Protocol Phase 1 Verification COMPLETE');
-  console.log('====================================================');
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error('Fatal test error:', err);
+  process.exit(1);
+});

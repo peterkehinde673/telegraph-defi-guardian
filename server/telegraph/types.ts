@@ -159,6 +159,8 @@ export interface MinerAttribution {
   slug?: string;
   protocol?: string;
   rank?: number;
+  score?: number;
+  walletAddress?: string;
   endpoint?: string;
 }
 

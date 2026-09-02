@@ -15,7 +15,7 @@
 
 ## 1. Executive Summary & Track 3 Focus
 
-**Telegraph DeFi Guardian** is a **Track 3 (Applications)** production platform that directly consumes live intelligence from registered **Telegraph Protocol Miners** on Base-Sepolia. It solves the fragmentation and opacity of DeFi risk analysis by querying multiple miner intents concurrently, normalizing attested payloads into canonical data models, and computing an auditable, deterministic **0–100 DeFi Risk Score** with explicit cryptographic and miner attribution.
+**Telegraph DeFi Guardian** is a **Track 3 (Applications)** production platform that operates as a genuine application consumer of live intelligence from registered **Telegraph Protocol Miners** on Base-Sepolia. It solves the fragmentation and opacity of DeFi risk analysis by querying multiple miner intents dynamically through the Telegraph Node's miner dispatcher registry, normalizing attested payloads into canonical data models, and computing an auditable, deterministic **0–100 DeFi Risk Score** with explicit cryptographic and miner attribution.
 
 ---
 
@@ -34,26 +34,26 @@ Modern DeFi protocols and institutional liquidity providers face critical struct
 The **Telegraph Protocol** provides a decentralized marketplace for verifiable AI inference and specialized intelligence where:
 - Autonomous miners compete to fulfill specific intelligence **intents** (`CRYPTO_PRICE`, `TVL_LOOKUP`, `GAS_PRICE`, `FRAUD_DETECTION`, `TOKEN_HOLDER_COUNT`, `SSL_VERIFICATION`).
 - Validators grade responses and produce cryptographically signed on-chain `SubnetResponse` events.
-- **Telegraph DeFi Guardian** harnesses this decentralized miner subnet to dispatch concurrent queries, normalize verified payloads into canonical schemas, and construct an auditable, multi-vector risk model.
+- **Telegraph DeFi Guardian** harnesses this decentralized miner subnet by dynamically querying the Telegraph Node's miner-dispatcher registry (`/miner-dispatcher/integrations`), routing queries to top-ranked active miners, normalizing verified payloads into canonical schemas, and constructing an auditable, multi-vector risk model.
 
 ---
 
 ## 4. Main Capabilities
 
-- **⚡ Multi-Intent Dispatcher**: Concurrently queries multiple registered Telegraph Miners to retrieve real-time market, protocol, network, wallet, and infrastructure signals.
+- **⚡ Dynamic Multi-Intent Dispatcher**: Dynamically resolves and queries registered Telegraph Miners via the Telegraph Node registry to retrieve real-time market, protocol, network, wallet, and infrastructure signals.
 - **🎯 Deterministic Risk Engine**: Mathematical scoring formula mapping 5 risk dimensions into an auditable 0–100 score (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`).
-- **🛡️ Direct Miner Attribution Matrix**: Every risk factor is mapped to its originating Miner ID, Miner Name, Canonical Proof Hash, and Category Weight contribution.
-- **📊 Cross-Oracle Spread Detection**: Automatically computes pricing spread anomalies across independent reporting sources (e.g., CoinPaprika, DefiLlama).
+- **🛡️ Authentic Miner Attribution Matrix**: Every risk factor is mapped to its originating Miner ID, Miner Name, Canonical Proof Hash, and Category Weight contribution directly from the Telegraph network.
+- **📊 Cross-Oracle Spread Detection**: Automatically computes pricing spread anomalies across independent reporting sources (e.g., CoinPaprika, DefiLlama, Binance).
 - **🔍 Liquidity & Collateral Tiers**: Evaluates total value locked (TVL) against institutional liquidity thresholds ($1B+ Tier 1, $100M+ Tier 2, down to Sub-$1M liquidation danger).
 - **🚨 Counterparty & Wallet Sentinel**: Detects direct mixer deposits, funder fan-out clusters, and sanctions/exploit associations via Telegraph Fraud Miners.
 - **🌐 Network & Execution Cost Sentinel**: Monitors real-time EVM gas dynamics, Gwei surges, and transfer fee impacts.
 - **📡 Subnet Event Stream Explorer**: Inspects live on-chain signed `SubnetResponse` transactions directly from the Telegraph Node.
-- **🏛️ Active Miner Registry**: Dynamically browses all active Telegraph subnet miners, endpoint statuses, and supported intents.
+- **🏛️ Active Miner Registry Explorer**: Dynamically browses all active Telegraph subnet miners, live endpoint statuses, subnet scores, and supported intents.
 - **💾 Session Audit History**: Locally stores historical assessments for side-by-side protocol comparison and developer payload inspection.
 
 ---
 
-## 5. System Architecture
+## 5. System Architecture & Dynamic Consumer Flow
 
 ```
                                   USER INTERFACE
@@ -66,22 +66,19 @@ The **Telegraph Protocol** provides a decentralized marketplace for verifiable A
                                         │
                  ┌──────────────────────┴──────────────────────┐
                  ▼                                             ▼
-    TELEGRAPH PROTOCOL NODE                      REGISTERED TELEGRAPH MINERS
-  • GET /status (Public Key & Node)             • Miner #9002 (TxLens): CRYPTO_PRICE
-  • GET / (Live SubnetResponse Events)          • Miner #9002 (TxLens): TVL_LOOKUP
-  • GET /miner-dispatcher/integrations          • Miner #9002 (TxLens): GAS_PRICE
-                                                • Miner #9002 (TxLens): FRAUD_DETECTION (Wallet)
-                                                • Miner #9002 (TxLens): TOKEN_HOLDER_COUNT
-                                                • Miner #9002 (TxLens): SSL_VERIFICATION
-                                                • Fallback Miner #20260829 (AgentFeed): Prices
-                                                • Fallback Miner #7301 (GasWire): Gas Fees
+    TELEGRAPH PROTOCOL NODE                      TELEGRAPH MINER REGISTRY ROUTING
+  • GET /status (Public Key & Node)             • Queries /miner-dispatcher/integrations
+  • GET / (Live SubnetResponse Events)          • Resolves active registered miners for intent
+  • GET /miner-dispatcher/integrations          • Orders by official Subnet Rank / Score
+                                                • Dispatches requests to miner base URLs
+                                                • Attaches authentic miner ID & rank
                  │                                             │
                  └──────────────────────┬──────────────────────┘
                                         ▼
                          TELEGRAPH NORMALIZATION LAYER
            • Canonical Proof Hashing
            • Range Clamping & Field Sanitization
-           • Miner Attribution & Multi-Source Verification
+           • Authentic Miner Attribution & Multi-Source Verification
                                         │
                                         ▼
                         DETERMINISTIC RISK ENGINE (v2.1)
@@ -95,19 +92,19 @@ The **Telegraph Protocol** provides a decentralized marketplace for verifiable A
 
 ---
 
-## 6. Supported Telegraph Intents & Official Miner Map
+## 6. Dynamic Telegraph Intents & Active Miner Subnet
 
-| Intent | Registered Miner | Miner ID | Official Miner Endpoint Path | Extracted Intelligence |
-| :--- | :--- | :--- | :--- | :--- |
-| `CRYPTO_PRICE` | TxLens | `#9002` | `/crypto-price?coin_id={symbol}` | Price USD, 24h Change %, Market Cap, Multi-Source Spread |
-| `TVL_LOOKUP` | TxLens | `#9002` | `/tvl?protocol={name}` | Total Value Locked (USD), Chain Allocations, Collateral Depth |
-| `GAS_PRICE` | TxLens | `#9002` | `/gas-price?chain={chain}` | Gas Price (Gwei), Wei, Transfer Cost USD, Fee Surge Level |
-| `FRAUD_DETECTION` | TxLens | `#9002` | `/assess-wallet?wallet={address}` | Risk Score (0–1), Reason Codes, Funder Fan-Out, Mixer Flags |
-| `FRAUD_QUERY` | TxLens | `#9002` | `/fraud-query` (POST) | Source-Backed Forensic Fraud Assessment |
-| `TOKEN_HOLDER_COUNT`| TxLens | `#9002` | `/token-holders?token={address}` | Active On-Chain Token Holders, Concentration Tier |
-| `SSL_VERIFICATION` | TxLens | `#9002` | `/ssl-check?domain={domain}` | SSL Validity, Issuer, Days to Expiry, Certificate Grade |
-| `SUBNET_EVENTS` | Base-Sepolia Telegraph Node | N/A | `/` | Signed `SubnetResponse` Events, Validator Signatures |
-| `MINER_DISPATCHER` | Base-Sepolia Telegraph Node | N/A | `/miner-dispatcher/integrations` | Active Miner Directory & Supported Capabilities |
+| Intent | Dynamic Registry Resolution | Standard Miner Endpoint | Extracted Intelligence |
+| :--- | :--- | :--- | :--- |
+| `CRYPTO_PRICE` | Dynamically resolved from Telegraph Dispatcher | `/price?coin_id={symbol}` or `/ask` | Price USD, 24h Change %, Market Cap, Multi-Source Spread |
+| `TVL_LOOKUP` | Dynamically resolved from Telegraph Dispatcher | `/tvl?protocol={name}` or `/risk-assessment` | Total Value Locked (USD), Chain Allocations, Collateral Depth |
+| `GAS_PRICE` | Dynamically resolved from Telegraph Dispatcher | `/gas?chain={chain}` or `/gas-price` | Gas Price (Gwei), Wei, Transfer Cost USD, Fee Surge Level |
+| `FRAUD_DETECTION` | Dynamically resolved from Telegraph Dispatcher | `/fraud?wallet={address}` or `/assess-wallet` | Risk Score (0–1), Reason Codes, Funder Fan-Out, Mixer Flags |
+| `FRAUD_QUERY` | Dynamically resolved from Telegraph Dispatcher | `/fraud-query` or `/ask` (POST) | Source-Backed Forensic Fraud Assessment |
+| `TOKEN_HOLDER_COUNT`| Dynamically resolved from Telegraph Dispatcher | `/holders?token={address}` | Active On-Chain Token Holders, Concentration Tier |
+| `SSL_VERIFICATION` | Dynamically resolved from Telegraph Dispatcher | `/ssl-check?domain={domain}` | SSL Validity, Issuer, Days to Expiry, Certificate Grade |
+| `SUBNET_EVENTS` | Base-Sepolia Telegraph Node | `/` | Signed `SubnetResponse` Events, Validator Signatures |
+| `MINER_DISPATCHER` | Base-Sepolia Telegraph Node | `/miner-dispatcher/integrations` | Active Miner Directory & Supported Capabilities |
 
 ---
 
@@ -144,88 +141,23 @@ When an intelligence intent is unavailable or unmeasured for a target, the engin
 
 ---
 
-## 9. Local Development & Setup
+## 9. Verification & Testing
 
-### Prerequisites
-- Node.js $\ge 18.0.0$
-- npm or bun
-
-### Installation
+Execute the test suites to verify end-to-end functionality:
 
 ```bash
-# Clone repository
-git clone https://github.com/peterkehinde673/telegraph-defi-guardian.git
-cd telegraph-defi-guardian
-
-# Install dependencies
-npm install
-```
-
-### Environment Configuration
-
-Create a `.env` file from the provided example:
-
-```bash
-cp .env.example .env
-```
-
-Configuration variables in `.env`:
-```env
-# Telegraph Protocol Node Configuration
-TELEGRAPH_NODE_URL="https://devnode.telegraphprotocol.com"
-TELEGRAPH_ENGINE_URL="http://13.237.89.59:8080"
-TELEGRAPH_DAEMON_URL="http://13.237.89.59:8081"
-```
-
-### Running Development Server
-
-```bash
-npm run dev
-```
-
-The application will start at `http://localhost:3000`.
-
----
-
-## 10. Verification & Test Suite
-
-The repository includes dedicated verification test suites that query live Telegraph Miners and validate normalizer contracts:
-
-```bash
-# 1. Type Check & Linting
-npm run lint
-
-# 2. Test Telegraph Protocol Miner End-to-End Connectivity
+# 1. Live Telegraph Protocol Application Consumer Test
 npx tsx scripts/test-telegraph.ts
 
-# 3. Test Normalization Layer (All 8 Intents)
+# 2. Intelligence Normalization Layer Test
 npx tsx scripts/test-normalization.ts
 
-# 4. Test Deterministic Risk Engine (Mathematical Proofs & Edge Cases)
+# 3. Deterministic Risk Engine Test
 npx tsx scripts/test-risk-engine.ts
-
-# 5. Production Build
-npm run build
 ```
 
 ---
 
-## 11. Security & Compliance Notes
+## 10. License
 
-1. **Zero Client Secret Leakage**: All Telegraph Node requests, timeouts, and miner dispatches occur exclusively server-side in `/server/*`.
-2. **SSRF & Injection Prevention**: User inputs (symbols, contract addresses, domains) are strictly validated and clamped with regular expressions before miner dispatch.
-3. **No Synthetic / Fabricated Fallbacks**: The engine refuses to substitute fake or synthetic figures if a miner is unreachable; it produces explicit `missingDataWarnings` and degrades confidence transparently.
-4. **Isolated Port Configuration**: Dev server and Express proxy bind cleanly to port `3000` on `0.0.0.0`.
-
----
-
-## 12. Project Limitations & Roadmap
-
-- **Multi-Chain Gas**: Currently supports Ethereum, Arbitrum, Optimism, Base, and Polygon EVM chains for gas pricing. Solana and non-EVM execution monitoring is planned.
-- **Smart Contract Bytecode Analysis**: Future iterations will integrate specialized Telegraph decompilation miners to detect reentrancy and proxy implementation changes directly.
-
----
-
-## 13. License
-
-Distributed under the **MIT License**. See `LICENSE` for details.
+MIT License — see [LICENSE](LICENSE) for details.

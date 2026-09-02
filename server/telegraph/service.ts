@@ -23,67 +23,67 @@ export class TelegraphIntelligenceService {
   }
 
   /**
-   * Fetches and normalizes real CRYPTO_PRICE signals from dynamically resolved Telegraph Miners.
+   * Fetches and normalizes real CRYPTO_PRICE signals via the official Telegraph Engine auto-router (/v1/ask).
    */
   async getCryptoPrice(coinId: string): Promise<NormalizedSignal<NormalizedCryptoPrice>> {
-    const { raw, minerMeta } = await this.client.requestCryptoPrice(coinId);
-    return TelegraphNormalizer.normalizeCryptoPrice(raw, minerMeta);
+    const raw = await this.client.requestCryptoPrice(coinId);
+    return TelegraphNormalizer.normalizeCryptoPrice(raw);
   }
 
   /**
-   * Fetches and normalizes verified TVL signals from dynamically resolved Telegraph Miners.
+   * Fetches and normalizes verified TVL signals via the official Telegraph Engine auto-router (/v1/ask).
    */
   async getTVL(protocolOrChain: string): Promise<NormalizedSignal<NormalizedTVL>> {
-    const { raw, minerMeta } = await this.client.requestTVLLookup(protocolOrChain);
-    return TelegraphNormalizer.normalizeTVL(raw, minerMeta);
+    const raw = await this.client.requestTVLLookup(protocolOrChain);
+    return TelegraphNormalizer.normalizeTVL(raw);
   }
 
   /**
-   * Fetches and normalizes verified GAS_PRICE signals from dynamically resolved Telegraph Miners.
+   * Fetches and normalizes verified GAS_PRICE signals via the official Telegraph Engine auto-router (/v1/ask).
    */
   async getGasPrice(chain = 'eth'): Promise<NormalizedSignal<NormalizedGasPrice>> {
-    const { raw, minerMeta } = await this.client.requestGasPrice(chain);
-    return TelegraphNormalizer.normalizeGasPrice(raw, minerMeta);
+    const raw = await this.client.requestGasPrice(chain);
+    return TelegraphNormalizer.normalizeGasPrice(raw);
   }
 
   /**
-   * Queries real wallet risk intelligence from dynamically resolved Telegraph Miners.
+   * Queries real wallet risk intelligence via the official Telegraph Engine auto-router (/v1/ask).
    */
   async assessWallet(address: string, chain = 'eth'): Promise<NormalizedSignal<NormalizedWalletAssessment>> {
-    const { raw, minerMeta } = await this.client.requestWalletAssessment(address, chain);
-    return TelegraphNormalizer.normalizeWalletAssessment(raw, minerMeta);
+    const raw = await this.client.requestWalletAssessment(address, chain);
+    return TelegraphNormalizer.normalizeWalletAssessment(raw);
   }
 
   /**
-   * Dispatches a structured fraud knowledge query to dynamically resolved Telegraph Miners.
+   * Dispatches a structured fraud knowledge query via the official Telegraph Engine auto-router (/v1/ask).
    */
   async queryFraudIntelligence(query: string): Promise<NormalizedSignal<NormalizedFraudQuery>> {
-    const { raw, minerMeta } = await this.client.requestFraudQuery(query);
-    return TelegraphNormalizer.normalizeFraudQuery({ ...raw, query }, minerMeta);
+    const raw = await this.client.requestFraudQuery(query);
+    return TelegraphNormalizer.normalizeFraudQuery({ ...raw, query });
   }
 
   /**
-   * Performs an on-chain transaction status & calldata inspection via dynamically resolved Telegraph Miners.
+   * Performs an on-chain transaction inspection via the official Telegraph Engine auto-router (/v1/ask).
    */
   async lookupTransaction(txHash: string, chain = 'eth'): Promise<NormalizedSignal<NormalizedTxLookup>> {
-    const { raw, minerMeta } = await this.client.requestTxLookup(txHash, chain);
-    return TelegraphNormalizer.normalizeTxLookup(raw, minerMeta);
+    const raw = await this.client.requestTxLookup(txHash, chain);
+    return TelegraphNormalizer.normalizeTxLookup(raw);
   }
 
   /**
-   * Queries verified token holder distribution count from dynamically resolved Telegraph Miners.
+   * Queries verified token holder distribution count via the official Telegraph Engine auto-router (/v1/ask).
    */
   async getTokenHolders(tokenAddress: string, chain = 'eth'): Promise<NormalizedSignal<NormalizedTokenHolders>> {
-    const { raw, minerMeta } = await this.client.requestTokenHolders(tokenAddress, chain);
-    return TelegraphNormalizer.normalizeTokenHolders(raw, minerMeta);
+    const raw = await this.client.requestTokenHolders(tokenAddress, chain);
+    return TelegraphNormalizer.normalizeTokenHolders(raw);
   }
 
   /**
-   * Performs a real TLS/SSL certificate handshake check via dynamically resolved Telegraph Miners.
+   * Performs a real TLS/SSL certificate verification via the official Telegraph Engine auto-router (/v1/ask).
    */
   async checkSSL(domain: string): Promise<NormalizedSignal<NormalizedSSLCheck>> {
-    const { raw, minerMeta } = await this.client.requestSSLCheck(domain);
-    return TelegraphNormalizer.normalizeSSLCheck(raw, minerMeta);
+    const raw = await this.client.requestSSLCheck(domain);
+    return TelegraphNormalizer.normalizeSSLCheck(raw);
   }
 
   /**

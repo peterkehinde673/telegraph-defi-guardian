@@ -34,7 +34,7 @@ export class TelegraphClient {
     this.engineUrl = (config.engineUrl || process.env.TELEGRAPH_ENGINE_URL || 'http://13.237.89.59:8080').replace(/\/$/, '');
     this.daemonUrl = (config.daemonUrl || process.env.TELEGRAPH_DAEMON_URL || 'http://13.237.89.59:8081').replace(/\/$/, '');
     this.evmPrivateKey = config.evmPrivateKey || process.env.TELEGRAPH_EVM_PRIVATE_KEY;
-    this.timeoutMs = config.timeoutMs || 8000;
+    this.timeoutMs = config.timeoutMs || 15000;
   }
 
   /**

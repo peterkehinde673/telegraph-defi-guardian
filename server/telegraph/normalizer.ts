@@ -32,7 +32,7 @@ function sanitizeNumber(val: any, defaultVal = 0): number {
 
 function extractAttribution(raw: any, minerMeta: Partial<MinerAttribution> = {}): MinerAttribution {
   const routing = raw?.routing || raw?.data?.routing || {};
-  const minerId =
+  const rawMinerId =
     minerMeta.minerId ||
     routing.miner_id ||
     routing.minerId ||
@@ -41,9 +41,9 @@ function extractAttribution(raw: any, minerMeta: Partial<MinerAttribution> = {})
     raw?.miner_id ||
     raw?.minerId ||
     raw?.subnet_id ||
-    'unattributed';
+    null;
 
-  const minerName =
+  const rawMinerName =
     minerMeta.minerName ||
     routing.miner_name ||
     routing.minerName ||
@@ -51,18 +51,44 @@ function extractAttribution(raw: any, minerMeta: Partial<MinerAttribution> = {})
     routing.subnetName ||
     raw?.miner_name ||
     raw?.subnet_name ||
-    (minerId !== 'unattributed' ? `Telegraph Miner #${minerId}` : 'Telegraph Engine Router');
+    null;
+
+  const minerId = rawMinerId ? String(rawMinerId) : 'Attribution unavailable from Engine response';
+  const minerName = rawMinerName ? String(rawMinerName) : 'Attribution unavailable from Engine response';
+
+  const slug = minerMeta.slug || routing.slug || raw?.miner_slug || undefined;
+  const protocol = minerMeta.protocol || routing.protocol || raw?.protocol || undefined;
+  const rank = minerMeta.rank ?? routing.rank ?? raw?.miner_rank ?? undefined;
+  const score = minerMeta.score ?? routing.score ?? raw?.miner_score ?? undefined;
+  const walletAddress =
+    minerMeta.walletAddress || routing.wallet_address || routing.walletAddress || raw?.miner_wallet || undefined;
 
   return {
-    minerId: String(minerId),
+    minerId,
     minerName,
-    slug: minerMeta.slug || routing.slug || raw?.miner_slug,
-    protocol: minerMeta.protocol || routing.protocol || raw?.protocol || 'telegraph-engine',
-    rank: minerMeta.rank ?? routing.rank ?? raw?.miner_rank,
-    score: minerMeta.score ?? routing.score ?? raw?.miner_score,
-    walletAddress: minerMeta.walletAddress || routing.wallet_address || routing.walletAddress || raw?.miner_wallet,
-    endpoint: minerMeta.endpoint || 'POST /v1/ask',
+    slug,
+    protocol,
+    rank,
+    score,
+    walletAddress,
+    endpoint: minerMeta.endpoint || (raw?.endpoint ? String(raw.endpoint) : 'POST /v1/ask'),
   };
+}
+
+function resolveConfidence(
+  raw: any,
+  dataObj: any,
+  applicationFallback: number,
+  validationWarnings: string[],
+): { confidence: number; source: 'telegraph_engine' | 'application_calculated' } {
+  if (raw?.confidence !== undefined && raw?.confidence !== null) {
+    return { confidence: clampConfidence(raw.confidence), source: 'telegraph_engine' };
+  }
+  if (dataObj?.confidence !== undefined && dataObj?.confidence !== null) {
+    return { confidence: clampConfidence(dataObj.confidence), source: 'telegraph_engine' };
+  }
+  validationWarnings.push('Confidence not provided by Telegraph Engine; application-calculated estimate');
+  return { confidence: applicationFallback, source: 'application_calculated' };
 }
 
 export class TelegraphNormalizer {
@@ -109,23 +135,15 @@ export class TelegraphNormalizer {
     if (spreadPct !== null && spreadPct > 1.5) warnings.push(`Price disparity between sources: ${spreadPct.toFixed(2)}%`);
 
     const isValid = (dataObj.status === 'ok' || dataObj.intent === 'CRYPTO_PRICE' || raw.status === 'ok' || !raw.status) && rawPrice > 0;
+    const fallbackConf = sources.length >= 2 ? 1.0 : isValid ? 0.85 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
       isValid,
       hasCanonicalProof: Boolean(dataObj.canonical || dataObj.as_of || raw.canonical || raw.routing),
       multiSourceVerified: sources.length >= 2 || (dataObj.source_count && dataObj.source_count >= 2),
       warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : sources.length >= 2
-        ? 1.0
-        : isValid
-        ? 0.85
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
     const assetId = String(dataObj.asset || dataObj.query || dataObj.symbol || raw.asset || raw.query || raw.symbol || '').toLowerCase();
@@ -136,6 +154,7 @@ export class TelegraphNormalizer {
       intent: 'CRYPTO_PRICE',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: dataObj.as_of || dataObj.observed_at || raw.as_of || new Date().toISOString(),
       canonical: dataObj.canonical || raw.canonical || `crypto_price:${assetId || 'unknown'}:${rawPrice}`,
       summary: raw.summary || dataObj.summary || (typeof raw.result === 'string' ? raw.result : `${symbol || 'Asset'} price is $${rawPrice.toFixed(2)} USD`),
@@ -184,21 +203,15 @@ export class TelegraphNormalizer {
     if (rawTvl <= 0) warnings.push('Zero or unrecorded TVL');
 
     const isValid = (dataObj.status === 'ok' || dataObj.status === 'success' || raw.status === 'ok' || !raw.status) && rawTvl >= 0;
+    const fallbackConf = isValid ? 1.0 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
       isValid,
       hasCanonicalProof: Boolean(dataObj.canonical || dataObj.as_of || raw.canonical || raw.routing),
       multiSourceVerified: true,
       warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : isValid
-        ? 1.0
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
     const protoName = String(dataObj.protocol || dataObj.query || raw.protocol || raw.query || '');
@@ -208,6 +221,7 @@ export class TelegraphNormalizer {
       intent: 'TVL_LOOKUP',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: dataObj.as_of || raw.as_of || new Date().toISOString(),
       canonical: dataObj.canonical || raw.canonical || `tvl:${protoName || 'unknown'}:${rawTvl}`,
       summary: raw.summary || dataObj.summary || (typeof raw.result === 'string' ? raw.result : `${protoName || 'Protocol'} has $${rawTvl.toLocaleString('en-US')} TVL`),
@@ -252,22 +266,19 @@ export class TelegraphNormalizer {
     else if (gwei > 40) feeLevel = 'high';
     else if (gwei > 15) feeLevel = 'moderate';
 
+    const warnings: string[] = [];
+    if (gwei > 50) warnings.push('Elevated network gas congestion');
+
     const isValid = Boolean(gwei > 0 || wei !== '0');
+    const fallbackConf = isValid ? 0.98 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
       isValid,
       hasCanonicalProof: Boolean(dataObj.canonical || dataObj.as_of || raw.canonical || raw.routing),
       multiSourceVerified: true,
-      warnings: gwei > 50 ? ['Elevated network gas congestion'] : [],
+      warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : isValid
-        ? 0.98
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
     const chainName = String(dataObj.chain || dataObj.network || raw.chain || raw.network || 'eth').toLowerCase();
@@ -277,6 +288,7 @@ export class TelegraphNormalizer {
       intent: 'GAS_PRICE',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: dataObj.as_of || raw.as_of || new Date().toISOString(),
       canonical: dataObj.canonical || raw.canonical || `${chainName}:gas:${wei}`,
       summary: raw.summary || dataObj.summary || (typeof raw.result === 'string' ? raw.result : `Current gas price on ${chainName} is ${gwei.toFixed(4)} Gwei`),
@@ -332,21 +344,18 @@ export class TelegraphNormalizer {
     const directFunder = dataObj.coverage?.funder_fan_out?.funder || dataObj.direct_funder;
     const walletAddr = String(dataObj.wallet || dataObj.address || raw.wallet || raw.address || '');
 
+    const warnings: string[] = [];
+    if (dataObj.assessment_status === 'LIMITED') warnings.push('Bounded historical depth for address');
+
+    const fallbackConf = Boolean(walletAddr) ? 0.85 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
       isValid: Boolean(walletAddr),
       hasCanonicalProof: Boolean(dataObj.coverage || dataObj.evidenceId || dataObj.signal || raw.canonical || raw.routing),
       multiSourceVerified: true,
-      warnings: dataObj.assessment_status === 'LIMITED' ? ['Bounded historical depth for address'] : [],
+      warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : validation.isValid
-        ? 0.85
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
 
@@ -355,6 +364,7 @@ export class TelegraphNormalizer {
       intent: 'FRAUD_DETECTION',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: new Date().toISOString(),
       canonical: `wallet_risk:${walletAddr}:${score.toFixed(3)}`,
       summary: raw.explanation || dataObj.explanation || raw.summary || dataObj.summary || (typeof raw.result === 'string' ? raw.result : `Wallet risk evaluated at ${score.toFixed(2)} (${riskLevel})`),
@@ -407,21 +417,16 @@ export class TelegraphNormalizer {
 
     const answerText = String(dataObj.answer || dataObj.summary || dataObj.signal || (typeof raw.result === 'string' ? raw.result : raw.summary || raw.answer || ''));
 
+    const warnings: string[] = [];
+    const fallbackConf = Boolean(answerText) ? 0.95 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
       isValid: Boolean(answerText),
       hasCanonicalProof: Boolean(sourceObj || answerText || raw.routing),
       multiSourceVerified: true,
-      warnings: [],
+      warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : validation.isValid
-        ? 0.95
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
     const queryText = String(dataObj.query || raw.query || '');
@@ -431,6 +436,7 @@ export class TelegraphNormalizer {
       intent: 'FRAUD_DETECTION',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: new Date().toISOString(),
       canonical: `fraud_query:${hashString(queryText || answerText)}`,
       summary: answerText,
@@ -471,21 +477,19 @@ export class TelegraphNormalizer {
     const txHash = String(dataObj.tx_hash || dataObj.hash || raw.tx_hash || raw.hash || '');
     const chainName = String(dataObj.chain || raw.chain || 'eth');
 
+    const warnings: string[] = [];
+    if (status === 'not_found') warnings.push('Transaction not located in indexed chain blocks');
+
+    const isValid = Boolean(txHash);
+    const fallbackConf = isValid ? 1.0 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
-      isValid: Boolean(txHash),
+      isValid,
       hasCanonicalProof: Boolean(dataObj.canonical || dataObj.as_of || raw.canonical || raw.routing),
       multiSourceVerified: true,
-      warnings: status === 'not_found' ? ['Transaction not located in indexed chain blocks'] : [],
+      warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : validation.isValid
-        ? 1.0
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
 
@@ -494,6 +498,7 @@ export class TelegraphNormalizer {
       intent: 'ONCHAIN_TX_LOOKUP',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: new Date().toISOString(),
       canonical: dataObj.canonical || raw.canonical || `tx:${chainName}:${txHash || 'unknown'}:${status}`,
       summary: raw.summary || dataObj.summary || (typeof raw.result === 'string' ? raw.result : `Transaction ${txHash} is ${status} on ${chainName}`),
@@ -538,21 +543,16 @@ export class TelegraphNormalizer {
     }
 
     const isValid = (dataObj.status === 'ok' || dataObj.holders != null || dataObj.count != null || raw.status === 'ok' || !raw.status) && holders >= 0;
+    const warnings: string[] = [];
+    const fallbackConf = isValid ? 1.0 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
       isValid,
       hasCanonicalProof: Boolean(dataObj.canonical || dataObj.as_of || raw.canonical || raw.routing),
       multiSourceVerified: true,
-      warnings: [],
+      warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : isValid
-        ? 1.0
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
     const tokenAddr = String(dataObj.token || dataObj.address || raw.token || raw.address || '');
@@ -564,6 +564,7 @@ export class TelegraphNormalizer {
       intent: 'TOKEN_HOLDER_COUNT',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: dataObj.as_of || raw.as_of || new Date().toISOString(),
       canonical: dataObj.canonical || raw.canonical || `holders:${chainName}:${tokenAddr || 'unknown'}:${holders}`,
       summary: raw.summary || dataObj.summary || (typeof raw.result === 'string' ? raw.result : `${tokenSym || 'Token'} has ${holders.toLocaleString('en-US')} holders on ${chainName}`),
@@ -607,21 +608,15 @@ export class TelegraphNormalizer {
     if (days < 14 && days > 0) warnings.push(`SSL Certificate expires in ${days} days`);
 
     const isSuccess = dataObj.status === 'ok' || dataObj.verdict != null || dataObj.valid != null || raw.status === 'ok' || raw.verdict != null || raw.valid != null || typeof raw.result === 'string';
+    const fallbackConf = isSuccess ? 1.0 : 0.2;
+    const { confidence: calculatedConfidence, source: confidenceSource } = resolveConfidence(raw, dataObj, fallbackConf, warnings);
+
     const validation: SignalValidation = {
       isValid: isSuccess,
       hasCanonicalProof: Boolean(dataObj.canonical || dataObj.checked_at || raw.canonical || raw.routing),
       multiSourceVerified: true,
       warnings,
     };
-
-    const calculatedConfidence =
-      raw.confidence !== undefined
-        ? clampConfidence(raw.confidence)
-        : dataObj.confidence !== undefined
-        ? clampConfidence(dataObj.confidence)
-        : isSuccess
-        ? 1.0
-        : 0.2;
 
     const attribution = extractAttribution(raw, minerMeta);
     const domainName = String(dataObj.domain || dataObj.query || raw.domain || raw.query || '');
@@ -631,6 +626,7 @@ export class TelegraphNormalizer {
       intent: 'SSL_VERIFICATION',
       success: validation.isValid,
       confidence: calculatedConfidence,
+      confidenceSource,
       timestamp: dataObj.checked_at || raw.checked_at || new Date().toISOString(),
       canonical: dataObj.canonical || raw.canonical || `ssl:${domainName}:${isValid ? 'valid' : 'invalid'}:${days}`,
       summary: raw.summary || dataObj.summary || (typeof raw.result === 'string' ? raw.result : `${domainName} SSL certificate status: ${isValid ? 'VALID' : 'INVALID'}`),

@@ -176,6 +176,7 @@ export interface NormalizedSignal<T> {
   intent: TelegraphIntent;
   success: boolean;
   confidence: number; // 0.0 - 1.0
+  confidenceSource?: 'telegraph_engine' | 'application_calculated';
   timestamp: string; // ISO 8601
   canonical: string;
   summary: string;

@@ -18,18 +18,18 @@
                       │  (server.ts / Server-side Only) │
                       └───────┬─────────────────┬───────┘
                               │                 │
-            (2. Concurrency)  │                 │ (3. Network Telemetry)
+            (2. Intelligence) │                 │ (3. Network Telemetry)
                               ▼                 ▼
   ┌─────────────────────────────────┐      ┌─────────────────────────────────┐
-  │   DYNAMIC MINER ROUTING ENGINE  │      │     TELEGRAPH PROTOCOL NODE     │
-  │ • Queries Dispatcher Integrations│     │ • GET /status (Node Public Key) │
-  │ • Filters active intent miners  │      │ • GET / (SubnetResponse Stream) │
-  │ • Ranks miners by subnet score  │      │ • GET /miner-dispatcher/integr. │
-  │ • Dispatches to miner base URL  │      └────────────────┬────────────────┘
-  │ • Attaches authentic attribution│                       │
+  │     TELEGRAPH ENGINE ROUTER     │      │     TELEGRAPH PROTOCOL NODE     │
+  │ • POST /v1/ask                  │      │ • GET /status (Node Public Key) │
+  │ • x402 payment flow if required │      │ • GET / (SubnetResponse Stream) │
+  │ • Engine resolves & routes query│      │ • GET /miner-dispatcher/integr. │
+  │ • Real Miner executes inference │      │   (Discovery/Telemetry Only)    │
+  │ • Returns authentic response    │      └────────────────┬────────────────┘
   └────────────────┬────────────────┘                       │
                    │                                        │
-                   │ (4. Raw Attested Payloads)             │
+                   │ (4. Real Engine Responses)             │
                    ▼                                        │
   ┌────────────────────────────────────────────────────────┐│
   │              TELEGRAPH NORMALIZATION LAYER             ││
@@ -37,7 +37,7 @@
   │ • Schema validation & field type checking              ││
   │ • Canonical proof hashing                              ││
   │ • Range clamping & multi-source spread calculation     ││
-  │ • Authentic Miner ID & Name attribution                ││
+  │ • Transparent attribution & confidence source handling ││
   └────────────────┬───────────────────────────────────────┘│
                    │                                        │
                    │ (5. Normalized Intelligence Bundle)    │
@@ -76,8 +76,8 @@
 | File / Directory | Purpose & Responsibility |
 | :--- | :--- |
 | `server.ts` | Main Express server entry point. Configures CORS, sets up `/api/telegraph/*` endpoints with timeouts, mounts Vite in dev mode, and serves built assets in production. |
-| `server/telegraph/client.ts` | Dynamic Telegraph Application Consumer client interfacing with `TELEGRAPH_NODE_URL`. Dynamically discovers active miners via `/miner-dispatcher/integrations`, sorts by subnet score/rank, routes intent requests, and captures authentic miner metadata. |
-| `server/telegraph/service.ts` | High-level Telegraph orchestration service that coordinates multi-intent queries, orchestrates parallel miner calls, and maps outputs through the normalizer. |
+| `server/telegraph/client.ts` | Dynamic Telegraph Application Consumer client interfacing with `TELEGRAPH_ENGINE_URL` via `POST /v1/ask` with x402 payment support for intelligence routing, and with `TELEGRAPH_NODE_URL` for network discovery/status/telemetry. |
+| `server/telegraph/service.ts` | High-level Telegraph orchestration service that formulates intent queries, dispatches them through the Telegraph Engine via `client.askEngine()`, and maps real outputs through the normalizer. |
 | `server/telegraph/normalizer.ts` | Sanitizes all raw miner responses into strict, strongly typed canonical interfaces. Extracts prices, calculates spread percentages, validates SSL domains, and produces deterministic hashes. |
 | `server/telegraph/types.ts` | Core TypeScript interfaces defining raw miner responses, normalized intelligence signals, and network overview structures. |
 | `server/risk-engine/engine.ts` | Pure deterministic evaluation engine. Takes a `SubjectTarget` and `InputIntelligenceBundle` and computes mathematical factor scores, category breakdowns, and confidence ratings. |

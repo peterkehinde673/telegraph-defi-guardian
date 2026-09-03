@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { wrapFetchWithPayment, x402Client } from '@x402/fetch';
 import { ExactEvmScheme, toClientEvmSigner } from '@x402/evm';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -34,7 +35,7 @@ export class TelegraphClient {
     this.engineUrl = (config.engineUrl || process.env.TELEGRAPH_ENGINE_URL || 'http://13.237.89.59:8080').replace(/\/$/, '');
     this.daemonUrl = (config.daemonUrl || process.env.TELEGRAPH_DAEMON_URL || 'http://13.237.89.59:8081').replace(/\/$/, '');
     this.evmPrivateKey = config.evmPrivateKey || process.env.TELEGRAPH_EVM_PRIVATE_KEY;
-    this.timeoutMs = config.timeoutMs || 15000;
+    this.timeoutMs = config.timeoutMs || 30000;
   }
 
   /**
@@ -161,6 +162,14 @@ export class TelegraphClient {
           const parsed = JSON.parse(errText);
           detail = parsed.error || parsed.message || parsed.detail || errText;
         } catch {}
+
+        if (res.status === 402) {
+          const keyStatus = this.evmPrivateKey
+            ? 'EVM private key configured, but payment was rejected or unconfirmed.'
+            : 'No EVM private key configured (TELEGRAPH_EVM_PRIVATE_KEY missing).';
+          throw new Error(`Telegraph Engine returned HTTP 402 (Payment Required): ${detail || 'x402 payment required'}. ${keyStatus}`);
+        }
+
         throw new Error(`Telegraph Engine returned HTTP ${res.status}: ${detail}`);
       }
 

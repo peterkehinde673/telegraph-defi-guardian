@@ -79,7 +79,9 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
                           {item.minerName}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-500">ID: #{item.minerId}</span>
+                      <span className="text-[10px] text-slate-500">
+                        {item.minerId.toLowerCase().includes('unavailable') ? 'Attribution unavailable' : `ID: #${item.minerId}`}
+                      </span>
                     </td>
 
                     {/* Canonical Proof */}

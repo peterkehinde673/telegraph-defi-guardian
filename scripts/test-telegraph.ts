@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { telegraphClient } from '../server/telegraph/client.ts';
 import { TelegraphNormalizer } from '../server/telegraph/normalizer.ts';
 
@@ -12,7 +13,7 @@ async function main() {
 
   console.log(`📡 Telegraph Engine URL : ${engineUrl}`);
   console.log(`🌐 Telegraph Node URL   : ${nodeUrl}`);
-  console.log(`🔑 x402 EVM Key Config  : ${hasEvmKey ? 'Configured (Auto-Pay Enabled)' : 'None (Free Inference / Sandbox)'}\n`);
+  console.log(`🔑 x402 EVM Key Config  : ${hasEvmKey ? 'Configured (Auto-Pay Enabled)' : 'Not configured — requests requiring x402 payment may return HTTP 402'}\n`);
 
   // 1. Live Telegraph Engine Verification (Guardian -> POST /v1/ask -> x402 if required -> Telegraph Engine -> real response -> normalizer)
   console.log('1. Testing Live Telegraph Engine Consumer Path (POST /v1/ask)...');
@@ -28,7 +29,15 @@ async function main() {
     console.log(`   Raw Output Preview: ${JSON.stringify(engineResponse).substring(0, 200)}...`);
   } catch (err: any) {
     console.error(`\n❌ LIVE ENGINE REQUEST FAILED: ${err.message}`);
-    console.error('   The Telegraph Engine auto-router at POST /v1/ask did not return a successful live response.');
+    if (err.message.includes('402')) {
+      console.error('   Reason: HTTP 402 Payment Required.');
+      console.error('   The Telegraph Engine requires x402 micropayment to route this intelligence intent.');
+      if (!hasEvmKey) {
+        console.error('   Configuration: No EVM private key configured (TELEGRAPH_EVM_PRIVATE_KEY is unset).');
+      }
+    } else {
+      console.error('   The Telegraph Engine auto-router at POST /v1/ask did not return a successful live response.');
+    }
     console.error('   Per verification standards, synthetic fallback and fabricated miner attribution are prohibited.\n');
     console.log('================================================================');
     console.log('LIVE TELEGRAPH ENGINE VERIFICATION: FAILED');
@@ -59,8 +68,8 @@ async function main() {
     process.exit(1);
   }
 
-  // 3. Telegraph Official Node Status & Cryptographic Events
-  console.log('\n3. Querying Official Telegraph Node Status & Live Subnet Events...');
+  // 3. Telegraph Official Node Status & Cryptographic Events (Telemetry & Provenance, Not Intelligence Routing)
+  console.log('\n3. Querying Official Telegraph Node Status & Live Subnet Events (Telemetry & Provenance, Not Intelligence Routing)...');
   try {
     const status = await telegraphClient.getNodeStatus();
     console.log('✅ Connected to Telegraph Node:');

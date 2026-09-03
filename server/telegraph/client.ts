@@ -32,10 +32,23 @@ export class TelegraphClient {
 
   constructor(config: TelegraphClientConfig = {}) {
     this.nodeUrl = (config.nodeUrl || process.env.TELEGRAPH_NODE_URL || 'https://devnode.telegraphprotocol.com').replace(/\/$/, '');
-    this.engineUrl = (config.engineUrl || process.env.TELEGRAPH_ENGINE_URL || 'http://13.237.89.59:8080').replace(/\/$/, '');
+    let engineUrl = (config.engineUrl || process.env.TELEGRAPH_ENGINE_URL || 'http://13.237.89.59:7044/engine').replace(/\/$/, '');
+    // If port 7044 or devnode is provided without /engine, route to the Engine subrouter /engine
+    if ((engineUrl.endsWith(':7044') || engineUrl.includes('devnode.telegraphprotocol.com')) && !engineUrl.endsWith('/engine')) {
+      engineUrl = `${engineUrl}/engine`;
+    }
+    this.engineUrl = engineUrl;
     this.daemonUrl = (config.daemonUrl || process.env.TELEGRAPH_DAEMON_URL || 'http://13.237.89.59:8081').replace(/\/$/, '');
     this.evmPrivateKey = config.evmPrivateKey || process.env.TELEGRAPH_EVM_PRIVATE_KEY;
     this.timeoutMs = config.timeoutMs || 30000;
+  }
+
+  public getEngineUrl(): string {
+    return this.engineUrl;
+  }
+
+  public getNodeUrl(): string {
+    return this.nodeUrl;
   }
 
   /**
@@ -167,10 +180,21 @@ export class TelegraphClient {
           const keyStatus = this.evmPrivateKey
             ? 'EVM private key configured, but payment was rejected or unconfirmed.'
             : 'No EVM private key configured (TELEGRAPH_EVM_PRIVATE_KEY missing).';
-          throw new Error(`Telegraph Engine returned HTTP 402 (Payment Required): ${detail || 'x402 payment required'}. ${keyStatus}`);
+          const err: any = new Error(`Telegraph Engine returned HTTP 402 (Payment Required): ${detail || 'x402 payment required'}. ${keyStatus}`);
+          err.statusCode = 402;
+          err.paymentDetails = detail;
+          throw err;
         }
 
-        throw new Error(`Telegraph Engine returned HTTP ${res.status}: ${detail}`);
+        if (res.status === 404) {
+          const err: any = new Error(`Telegraph Engine returned HTTP 404: Not Found at ${this.engineUrl}/v1/ask`);
+          err.statusCode = 404;
+          throw err;
+        }
+
+        const err: any = new Error(`Telegraph Engine returned HTTP ${res.status}: ${detail}`);
+        err.statusCode = res.status;
+        throw err;
       }
 
       return await res.json();

@@ -3,8 +3,36 @@
 > **Telegraph Protocol Hackathon — Track 3: Applications**  
 > **Multi-intent DeFi intelligence and deterministic risk assessment terminal**
 
-Live application: https://telegraph-defi-guardian.onrender.com/  
-Repository: https://github.com/peterkehinde673/telegraph-defi-guardian
+[![Live Demo](https://img.shields.io/badge/Live-Demo-success)](https://telegraph-defi-guardian.onrender.com/)
+[![Track 3](https://img.shields.io/badge/Telegraph-Track%203-blue)](https://hackathon.telegraphprotocol.com/)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey)](package/LICENSE)
+
+**Live application:** https://telegraph-defi-guardian.onrender.com/  
+**Repository:** https://github.com/peterkehinde673/telegraph-defi-guardian
+
+---
+
+## Screenshots
+
+The following screenshots are from the live DeFi Guardian application and document the main user-facing workflow, risk assessment, architecture, and live network observability.
+
+### Risk Terminal & Session History
+
+![DeFi Guardian risk terminal and session history](docs/screenshots/01-terminal-search-history.jpg)
+
+### Live Risk Assessment
+
+![DeFi Guardian live risk assessment](docs/screenshots/02-live-risk-assessment.jpg)
+
+### Architecture & Deterministic Scoring Pipeline
+
+![DeFi Guardian architecture and scoring pipeline](docs/screenshots/03-architecture-scoring-pipeline.jpg)
+
+### Live Subnet Event Stream
+
+![DeFi Guardian live Subnet event stream](docs/screenshots/04-subnet-events-stream.jpg)
+
+> **Note:** These screenshots are documentation of the application UI and workflow. They do not replace live Telegraph Engine requests or prove a successful inference by themselves.
 
 ---
 
@@ -77,6 +105,8 @@ Risk report + evidence/provenance metadata
 ### Important architectural boundary
 
 DeFi Guardian does not locally rank, choose, or dispatch to a Miner for inference. It consumes Telegraph Engine as the application-facing routing surface. This is important for Track 3 because the protocol, rather than the application, controls Miner routing.
+
+For a more detailed architecture walkthrough, see [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
 

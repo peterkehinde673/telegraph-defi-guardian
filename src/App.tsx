@@ -39,7 +39,6 @@ export default function App() {
     }
   });
 
-  // Load Network Overview on Mount
   const loadOverview = async () => {
     setIsLoadingOverview(true);
     try {
@@ -52,7 +51,6 @@ export default function App() {
     }
   };
 
-  // Run Risk Analysis
   const handleAnalyze = async (req: AnalysisRequest) => {
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -61,7 +59,6 @@ export default function App() {
       const report = await guardianApi.analyzeTarget(req);
       setCurrentReport(report);
 
-      // Save to local session history
       const newRecord: StoredAnalysisRecord = {
         id: `${report.subject.id}_${Date.now()}`,
         timestamp: report.timestamp,
@@ -101,19 +98,15 @@ export default function App() {
     }
   };
 
-  // Initial mount: load overview and execute initial quick check for Ethereum
+  // Overview is read-only and safe to load automatically. Paid Engine inference is
+  // intentionally user-initiated so opening the public app never spends the
+  // operator's x402 wallet without an explicit analysis action.
   useEffect(() => {
     loadOverview();
-    handleAnalyze({
-      target: 'ethereum',
-      analysisType: 'quick',
-      chain: 'eth',
-    });
   }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-slate-950">
-      {/* Navigation & Live Status Header */}
       <Header
         overview={overview}
         isLoadingOverview={isLoadingOverview}
@@ -122,48 +115,32 @@ export default function App() {
         setActiveTab={setActiveTab}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab 1: Risk Analyzer Terminal */}
         {activeTab === 'analyzer' && (
           <div className="space-y-8">
-            {/* Search and Parameter Panel */}
             <SearchPanel
               onAnalyze={handleAnalyze}
               isLoading={isAnalyzing}
               error={analysisError}
             />
 
-            {/* Current Report Display */}
             {currentReport && (
               <div className="space-y-8 animate-in fade-in duration-500">
-                {/* 1. Overall Score & Subject Metadata */}
                 <RiskScoreGauge report={currentReport} />
-
-                {/* 2. Verified Normalized Signals Grid */}
                 <SignalCardsGrid bundle={currentReport.rawTelegraphIntelligence} />
-
-                {/* 3. Risk Factors, Flags & Warnings Breakdown */}
                 <RiskFactorsBreakdown interpretation={currentReport.applicationInterpretation} />
-
-                {/* 4. Evidence Attribution to Telegraph Miners */}
                 <EvidenceAttributionTable
                   evidence={currentReport.applicationInterpretation?.evidenceAttribution || []}
-                  disclaimer={currentReport.attributionDisclaimer || 'Attributed to verified Telegraph subnet miners.'}
+                  disclaimer={currentReport.attributionDisclaimer || 'Telegraph Engine provenance is shown where the response exposes it; application-derived calculations are labeled separately.'}
                 />
-
-                {/* 5. Deterministic Mathematical Derivations */}
                 <CalculationsExplorer
                   categories={currentReport.applicationInterpretation?.categoryBreakdown || {}}
                   calculations={currentReport.derivedCalculations}
                 />
-
-                {/* 6. Raw JSON Payload Viewer for Auditors */}
                 <RawIntelligenceViewer report={currentReport} />
               </div>
             )}
 
-            {/* Session History */}
             <AnalysisHistory
               history={history}
               onSelectReport={(report) => {
@@ -175,7 +152,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 2: Live On-Chain Subnet Events */}
         {activeTab === 'events' && (
           <SubnetEventsView
             events={overview?.liveSubnetEvents || []}
@@ -183,20 +159,17 @@ export default function App() {
           />
         )}
 
-        {/* Tab 3: Miner Dispatcher Registry */}
         {activeTab === 'miners' && (
           <MinersRegistryView miners={overview?.miners || []} />
         )}
 
-        {/* Tab 4: Architecture & Methodology */}
         {activeTab === 'about' && <HowItWorksView />}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 font-mono">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <span>Telegraph DeFi Guardian • Track 3: Applications & Agents</span>
-          <span>Powered by Real Telegraph Protocol Miners & Verified Base-Sepolia Subnets</span>
+          <span>Powered by Telegraph Engine and live Telegraph network data</span>
         </div>
       </footer>
     </div>

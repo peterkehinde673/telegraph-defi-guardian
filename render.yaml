@@ -19,3 +19,7 @@ services:
         value: http://13.237.89.59:8081
       - key: TELEGRAPH_EVM_PRIVATE_KEY
         sync: false
+      - key: MAX_ANALYSES_PER_IP_PER_HOUR
+        value: 8
+      - key: MAX_GLOBAL_ANALYSES_PER_HOUR
+        value: 60

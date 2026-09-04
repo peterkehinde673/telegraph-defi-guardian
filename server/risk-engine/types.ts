@@ -50,6 +50,8 @@ export interface RiskFactorEvidence {
   weight: number; // 0.0 to 1.0
   polarity: 'positive' | 'negative' | 'neutral';
   finding: string;
+  confidence?: number;
+  confidenceSource?: 'telegraph_engine' | 'application_calculated';
 }
 
 export interface CategoryScore {

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: telegraph-defi-guardian
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TELEGRAPH_NODE_URL
+        value: https://devnode.telegraphprotocol.com
+      - key: TELEGRAPH_ENGINE_URL
+        value: http://13.237.89.59:7044/engine
+      - key: TELEGRAPH_DAEMON_URL
+        value: http://13.237.89.59:8081
+      - key: TELEGRAPH_EVM_PRIVATE_KEY
+        sync: false

@@ -29,6 +29,7 @@ export class TelegraphClient {
   private minersCachedAt = 0;
   private readonly CACHE_TTL_MS = 60_000; // 60s cache for node registry
   private paymentFetch: typeof fetch | null = null;
+  private askQueue: Promise<any> = Promise.resolve();
 
   constructor(config: TelegraphClientConfig = {}) {
     this.nodeUrl = (config.nodeUrl || process.env.TELEGRAPH_NODE_URL || 'https://devnode.telegraphprotocol.com').replace(/\/$/, '');
@@ -39,7 +40,11 @@ export class TelegraphClient {
     }
     this.engineUrl = engineUrl;
     this.daemonUrl = (config.daemonUrl || process.env.TELEGRAPH_DAEMON_URL || 'http://13.237.89.59:8081').replace(/\/$/, '');
-    this.evmPrivateKey = config.evmPrivateKey || process.env.TELEGRAPH_EVM_PRIVATE_KEY;
+    let rawKey = (config.evmPrivateKey || process.env.TELEGRAPH_EVM_PRIVATE_KEY || '').trim().replace(/^["']|["']$/g, '');
+    if (rawKey && !rawKey.startsWith('0x') && rawKey.length === 64) {
+      rawKey = `0x${rawKey}`;
+    }
+    this.evmPrivateKey = rawKey || undefined;
     this.timeoutMs = config.timeoutMs || 30000;
   }
 
@@ -151,8 +156,40 @@ export class TelegraphClient {
   /**
    * Submits a query directly to the official Telegraph Engine auto-router (POST /v1/ask).
    * Supports transparent x402 payment handling for paid inference.
+   * Requests are serialized via askQueue to prevent nonce collisions / batch_send_failed
+   * errors when multiple queries run concurrently against the x402 settlement relayer.
    */
   async askEngine(query: string): Promise<any> {
+    const runInQueue = async (): Promise<any> => {
+      let attempts = 0;
+      const maxAttempts = 2;
+      while (attempts < maxAttempts) {
+        attempts++;
+        try {
+          const res = await this.executeAskEngine(query);
+          // Brief pause after successful settlement to give the relayer a clean nonce boundary
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          return res;
+        } catch (err: any) {
+          const isBatchConflict =
+            err?.message?.includes('batch_send_failed') ||
+            err?.paymentDetails?.includes('batch_send_failed');
+          if (isBatchConflict && attempts < maxAttempts) {
+            // Wait 800ms to allow the settlement node's pending batch to settle, then retry
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            continue;
+          }
+          throw err;
+        }
+      }
+    };
+
+    const nextPromise = this.askQueue.then(runInQueue, runInQueue);
+    this.askQueue = nextPromise.catch(() => {});
+    return nextPromise;
+  }
+
+  private async executeAskEngine(query: string): Promise<any> {
     const fetchFn = this.getPaymentFetch();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -177,12 +214,30 @@ export class TelegraphClient {
         } catch {}
 
         if (res.status === 402) {
+          let paymentResponseDetail = '';
+          const paymentResponseHdr = res.headers.get('payment-response') || res.headers.get('x-payment-response');
+          if (paymentResponseHdr) {
+            try {
+              const decoded = JSON.parse(Buffer.from(paymentResponseHdr, 'base64').toString('utf8'));
+              paymentResponseDetail = ` Payment Response: [reason: ${decoded.errorReason || decoded.error || 'unknown'}, payer: ${decoded.payer || 'unknown'}, network: ${decoded.network || 'unknown'}]`;
+            } catch {}
+          }
+
+          const paymentReqHdr = res.headers.get('payment-required');
+          let paymentChallengeDetail = '';
+          if (paymentReqHdr) {
+            try {
+              const decodedReq = JSON.parse(Buffer.from(paymentReqHdr, 'base64').toString('utf8'));
+              paymentChallengeDetail = ` Accepts: ${decodedReq.accepts?.map((a: any) => `${a.network} (${a.extra?.name || a.asset})`).join(', ')}`;
+            } catch {}
+          }
+
           const keyStatus = this.evmPrivateKey
-            ? 'EVM private key configured, but payment was rejected or unconfirmed.'
-            : 'No EVM private key configured (TELEGRAPH_EVM_PRIVATE_KEY missing).';
+            ? `EVM private key configured, but payment was rejected by settlement node.${paymentResponseDetail}`
+            : `No EVM private key configured (TELEGRAPH_EVM_PRIVATE_KEY missing).${paymentChallengeDetail}`;
           const err: any = new Error(`Telegraph Engine returned HTTP 402 (Payment Required): ${detail || 'x402 payment required'}. ${keyStatus}`);
           err.statusCode = 402;
-          err.paymentDetails = detail;
+          err.paymentDetails = detail || paymentResponseDetail || paymentChallengeDetail;
           throw err;
         }
 

@@ -20,6 +20,55 @@ interface SignalCardsGridProps {
   bundle: InputIntelligenceBundle;
 }
 
+const renderCardFooter = (
+  signal: any,
+  extraLabel?: string,
+  extraVal?: React.ReactNode
+) => {
+  const isUnavailable =
+    !signal.attribution?.minerName ||
+    signal.attribution.minerName.toLowerCase().includes('unavailable') ||
+    !signal.attribution?.minerId ||
+    signal.attribution.minerId.toLowerCase().includes('unavailable');
+
+  return (
+    <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1.5 font-mono">
+      <div className="flex justify-between items-center">
+        <span className="text-slate-500">Miner:</span>
+        <span
+          className="text-slate-300 truncate max-w-[150px]"
+          title={signal.attribution?.minerName}
+        >
+          {isUnavailable ? 'Attribution unavailable from Engine response' : signal.attribution.minerName}
+        </span>
+      </div>
+      <div className="flex justify-between items-center text-[10px]">
+        <span className="text-slate-500">Confidence:</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-200 font-bold">{(signal.confidence * 100).toFixed(0)}%</span>
+          <span
+            className={`px-1.5 py-0.5 rounded border text-[9px] ${
+              signal.confidenceSource === 'telegraph_engine'
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}
+          >
+            {signal.confidenceSource === 'telegraph_engine'
+              ? 'Source: Telegraph Engine'
+              : 'Source: Application-calculated'}
+          </span>
+        </div>
+      </div>
+      {extraLabel && (
+        <div className="flex justify-between items-center">
+          <span className="text-slate-500">{extraLabel}:</span>
+          <span className="text-slate-300">{extraVal}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SignalCardsGrid: React.FC<SignalCardsGridProps> = ({ bundle }) => {
   const { price, tvl, gas, walletRisk, holders, ssl } = bundle;
 
@@ -87,16 +136,7 @@ export const SignalCardsGrid: React.FC<SignalCardsGridProps> = ({ bundle }) => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Miner:</span>
-                <span className="text-slate-300 truncate max-w-[150px]">{price.attribution.minerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Oracles:</span>
-                <span className="text-slate-300">{price.data.sourceCount} Independent Feeds</span>
-              </div>
-            </div>
+            {renderCardFooter(price, 'Oracles', `${price.data.sourceCount} Independent Feeds`)}
           </div>
         ) : (
           <div className="bg-slate-900/40 border border-dashed border-slate-800 rounded-xl p-4 flex flex-col justify-between opacity-70">
@@ -160,18 +200,13 @@ export const SignalCardsGrid: React.FC<SignalCardsGridProps> = ({ bundle }) => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Miner:</span>
-                <span className="text-slate-300 truncate max-w-[150px]">{tvl.attribution.minerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Tier:</span>
-                <span className="text-blue-400 font-semibold">
-                  {tvl.data.tvlUsd >= 1e9 ? 'Institutional Tier' : tvl.data.tvlUsd >= 100e6 ? 'Deep Liquidity' : 'Moderate Cushion'}
-                </span>
-              </div>
-            </div>
+            {renderCardFooter(
+              tvl,
+              'Tier',
+              <span className="text-blue-400 font-semibold">
+                {tvl.data.tvlUsd >= 1e9 ? 'Institutional Tier' : tvl.data.tvlUsd >= 100e6 ? 'Deep Liquidity' : 'Moderate Cushion'}
+              </span>
+            )}
           </div>
         ) : (
           <div className="bg-slate-900/40 border border-dashed border-slate-800 rounded-xl p-4 flex flex-col justify-between opacity-70">
@@ -234,16 +269,11 @@ export const SignalCardsGrid: React.FC<SignalCardsGridProps> = ({ bundle }) => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Miner:</span>
-                <span className="text-slate-300 truncate max-w-[150px]">{gas.attribution.minerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Settlement:</span>
-                <span className="text-emerald-400">Low Congestion</span>
-              </div>
-            </div>
+            {renderCardFooter(
+              gas,
+              'Settlement',
+              <span className="text-emerald-400">Low Congestion</span>
+            )}
           </div>
         ) : (
           <div className="bg-slate-900/40 border border-dashed border-slate-800 rounded-xl p-4 flex flex-col justify-between opacity-70">
@@ -309,16 +339,11 @@ export const SignalCardsGrid: React.FC<SignalCardsGridProps> = ({ bundle }) => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Miner:</span>
-                <span className="text-slate-300">{walletRisk.attribution.minerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Findings:</span>
-                <span className="text-slate-300">{(walletRisk.data.reasonCodes?.length ?? 0)} Risk Factors</span>
-              </div>
-            </div>
+            {renderCardFooter(
+              walletRisk,
+              'Findings',
+              <span className="text-slate-300">{(walletRisk.data.reasonCodes?.length ?? 0)} Risk Factors</span>
+            )}
           </div>
         ) : null}
 
@@ -355,16 +380,11 @@ export const SignalCardsGrid: React.FC<SignalCardsGridProps> = ({ bundle }) => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Miner:</span>
-                <span className="text-slate-300 truncate max-w-[150px]">{holders.attribution.minerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Distribution:</span>
-                <span className="text-emerald-400">Decentralized Base</span>
-              </div>
-            </div>
+            {renderCardFooter(
+              holders,
+              'Distribution',
+              <span className="text-emerald-400">Decentralized Base</span>
+            )}
           </div>
         ) : null}
 
@@ -404,16 +424,11 @@ export const SignalCardsGrid: React.FC<SignalCardsGridProps> = ({ bundle }) => {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Miner:</span>
-                <span className="text-slate-300">{ssl.attribution.minerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Expires:</span>
-                <span className="text-emerald-400">{ssl.data.daysUntilExpiry} days remaining</span>
-              </div>
-            </div>
+            {renderCardFooter(
+              ssl,
+              'Expires',
+              <span className="text-emerald-400">{ssl.data.daysUntilExpiry} days remaining</span>
+            )}
           </div>
         ) : null}
       </div>

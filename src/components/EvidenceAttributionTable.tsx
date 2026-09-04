@@ -47,6 +47,7 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
                 <th className="pb-3 pr-4 font-semibold">Factor / Category</th>
                 <th className="pb-3 px-4 font-semibold">Telegraph Intent</th>
                 <th className="pb-3 px-4 font-semibold">Attested Miner</th>
+                <th className="pb-3 px-4 font-semibold">Confidence & Origin</th>
                 <th className="pb-3 px-4 font-semibold">Canonical Verification Proof</th>
                 <th className="pb-3 px-4 font-semibold text-right">Score</th>
                 <th className="pb-3 pl-4 font-semibold text-center">Status</th>
@@ -54,34 +55,70 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {safeEvidence.map((item, idx) => {
+                const isAttributionUnavailable =
+                  !item.minerName ||
+                  item.minerName.toLowerCase().includes('unavailable') ||
+                  !item.minerId ||
+                  item.minerId.toLowerCase().includes('unavailable');
+
                 return (
                   <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
                     {/* Factor & Finding */}
                     <td className="py-3.5 pr-4">
                       <div className="font-bold text-slate-200">{item.factorId}</div>
-                      <div className="text-[11px] text-slate-400 max-w-[240px] truncate mt-0.5" title={item.finding}>
+                      <div className="text-[11px] text-slate-400 max-w-[220px] truncate mt-0.5" title={item.finding}>
                         {item.finding}
                       </div>
                     </td>
 
                     {/* Intent */}
                     <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px]">
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] whitespace-nowrap">
                         {item.telegraphIntent}
                       </span>
                     </td>
 
                     {/* Miner */}
                     <td className="py-3.5 px-4 text-slate-300">
-                      <div className="flex items-center gap-1.5">
-                        <Cpu className="w-3.5 h-3.5 text-slate-500" />
-                        <span className="truncate max-w-[140px]" title={item.minerName}>
-                          {item.minerName}
+                      {isAttributionUnavailable ? (
+                        <span className="text-[11px] text-slate-400 italic">
+                          Attribution unavailable from Engine response
+                        </span>
+                      ) : (
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <Cpu className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="truncate max-w-[140px] text-slate-200" title={item.minerName}>
+                              {item.minerName}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            ID: #{item.minerId}
+                          </span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Confidence & Origin */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex flex-col gap-1">
+                        {item.confidence !== undefined && (
+                          <span className="text-xs font-mono font-bold text-white">
+                            {(item.confidence * 100).toFixed(0)}%
+                          </span>
+                        )}
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded border whitespace-nowrap font-mono ${
+                            item.confidenceSource === 'telegraph_engine'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : 'bg-slate-800/70 text-slate-400 border-slate-700'
+                          }`}
+                        >
+                          {item.confidenceSource === 'telegraph_engine'
+                            ? 'Source: Telegraph Engine'
+                            : 'Source: Application-calculated'}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-500">
-                        {item.minerId.toLowerCase().includes('unavailable') ? 'Attribution unavailable' : `ID: #${item.minerId}`}
-                      </span>
                     </td>
 
                     {/* Canonical Proof */}

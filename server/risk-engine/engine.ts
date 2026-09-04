@@ -232,6 +232,8 @@ export class DeFiRiskEngine {
       weight,
       polarity: clampedScore <= 30 ? 'positive' : clampedScore >= 60 ? 'negative' : 'neutral',
       finding: `Asset price $${price.priceUsd.toFixed(2)} USD with ${price.change24hPct?.toFixed(2)}% 24h delta cross-verified on ${price.sourceCount} feeds.`,
+      confidence: bundle.price.confidence,
+      confidenceSource: bundle.price.confidenceSource,
     });
 
     return {
@@ -309,6 +311,8 @@ export class DeFiRiskEngine {
       weight,
       polarity: clampedScore <= 25 ? 'positive' : clampedScore >= 60 ? 'negative' : 'neutral',
       finding: `Protocol locked collateral verified at $${tvl.toLocaleString('en-US')} USD.`,
+      confidence: bundle.tvl.confidence,
+      confidenceSource: bundle.tvl.confidenceSource,
     });
 
     return {
@@ -383,6 +387,8 @@ export class DeFiRiskEngine {
       weight,
       polarity: clampedScore <= 20 ? 'positive' : clampedScore >= 60 ? 'negative' : 'neutral',
       finding: `Gas price on ${bundle.gas.data.chain} is ${gwei.toFixed(4)} Gwei (Fee level: ${bundle.gas.data.feeLevel}).`,
+      confidence: bundle.gas.confidence,
+      confidenceSource: bundle.gas.confidenceSource,
     });
 
     return {
@@ -439,6 +445,8 @@ export class DeFiRiskEngine {
         weight: 0.5,
         polarity: walletScore <= 20 ? 'positive' : walletScore >= 50 ? 'negative' : 'neutral',
         finding: `Wallet evaluated at risk score ${wr.riskScore.toFixed(2)} with ${wr.evidenceCount} evidence items.`,
+        confidence: bundle.walletRisk.confidence,
+        confidenceSource: bundle.walletRisk.confidenceSource,
       });
     }
 
@@ -466,6 +474,8 @@ export class DeFiRiskEngine {
         weight: 0.25,
         polarity: ssl.isValid ? 'positive' : 'negative',
         finding: `SSL certificate for ${ssl.domain} is ${ssl.statusText} (${ssl.issuer}).`,
+        confidence: bundle.ssl.confidence,
+        confidenceSource: bundle.ssl.confidenceSource,
       });
     }
 
@@ -567,6 +577,8 @@ export class DeFiRiskEngine {
       weight,
       polarity: clampedScore <= 20 ? 'positive' : clampedScore >= 60 ? 'negative' : 'neutral',
       finding: `${bundle.holders.data.tokenSymbol} has ${count.toLocaleString('en-US')} holding wallets on ${bundle.holders.data.chain}.`,
+      confidence: bundle.holders.confidence,
+      confidenceSource: bundle.holders.confidenceSource,
     });
 
     return {

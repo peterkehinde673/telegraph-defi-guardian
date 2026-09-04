@@ -3,11 +3,9 @@ import {
   FileCheck,
   Cpu,
   Hash,
-  Scale,
   CheckCircle,
   AlertTriangle,
   XCircle,
-  ExternalLink,
 } from 'lucide-react';
 import { RiskFactorEvidence } from '../types/index.ts';
 
@@ -28,14 +26,14 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
         <div>
           <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
             <FileCheck className="w-5 h-5 text-emerald-400" />
-            Cryptographic Evidence & Telegraph Miner Attribution
+            Evidence & Telegraph Provenance
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Transparent proof mapping each factor to its attested Telegraph Intent and miner node
+            Evidence used by the risk model, with Engine provenance shown only when supplied by Telegraph
           </p>
         </div>
         <span className="px-2.5 py-1 text-xs bg-slate-800 text-slate-300 rounded-lg font-mono">
-          {safeEvidence.length} Attested Signals
+          {safeEvidence.length} Evidence Factors
         </span>
       </div>
 
@@ -46,9 +44,9 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
               <tr className="border-b border-slate-800 text-slate-400">
                 <th className="pb-3 pr-4 font-semibold">Factor / Category</th>
                 <th className="pb-3 px-4 font-semibold">Telegraph Intent</th>
-                <th className="pb-3 px-4 font-semibold">Attested Miner</th>
+                <th className="pb-3 px-4 font-semibold">Miner Provenance</th>
                 <th className="pb-3 px-4 font-semibold">Confidence & Origin</th>
-                <th className="pb-3 px-4 font-semibold">Canonical Verification Proof</th>
+                <th className="pb-3 px-4 font-semibold">Canonical Reference</th>
                 <th className="pb-3 px-4 font-semibold text-right">Score</th>
                 <th className="pb-3 pl-4 font-semibold text-center">Status</th>
               </tr>
@@ -61,9 +59,14 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
                   !item.minerId ||
                   item.minerId.toLowerCase().includes('unavailable');
 
+                const hasCanonical = Boolean(
+                  item.canonicalProof &&
+                  !item.canonicalProof.toLowerCase().includes('no canonical') &&
+                  !item.canonicalProof.toLowerCase().includes('unavailable'),
+                );
+
                 return (
                   <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                    {/* Factor & Finding */}
                     <td className="py-3.5 pr-4">
                       <div className="font-bold text-slate-200">{item.factorId}</div>
                       <div className="text-[11px] text-slate-400 max-w-[220px] truncate mt-0.5" title={item.finding}>
@@ -71,18 +74,16 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
                       </div>
                     </td>
 
-                    {/* Intent */}
                     <td className="py-3.5 px-4">
                       <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] whitespace-nowrap">
                         {item.telegraphIntent}
                       </span>
                     </td>
 
-                    {/* Miner */}
                     <td className="py-3.5 px-4 text-slate-300">
                       {isAttributionUnavailable ? (
                         <span className="text-[11px] text-slate-400 italic">
-                          Attribution unavailable from Engine response
+                          Not exposed by Engine response
                         </span>
                       ) : (
                         <div>
@@ -92,75 +93,45 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
                               {item.minerName}
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            ID: #{item.minerId}
-                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">ID: #{item.minerId}</span>
                         </div>
                       )}
                     </td>
 
-                    {/* Confidence & Origin */}
                     <td className="py-3.5 px-4">
                       <div className="flex flex-col gap-1">
                         {item.confidence !== undefined && (
-                          <span className="text-xs font-mono font-bold text-white">
-                            {(item.confidence * 100).toFixed(0)}%
-                          </span>
+                          <span className="text-xs font-mono font-bold text-white">{(item.confidence * 100).toFixed(0)}%</span>
                         )}
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded border whitespace-nowrap font-mono ${
-                            item.confidenceSource === 'telegraph_engine'
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                              : 'bg-slate-800/70 text-slate-400 border-slate-700'
-                          }`}
-                        >
-                          {item.confidenceSource === 'telegraph_engine'
-                            ? 'Source: Telegraph Engine'
-                            : 'Source: Application-calculated'}
+                        <span className="text-[9px] px-1.5 py-0.5 rounded border whitespace-nowrap font-mono bg-slate-800/70 text-slate-400 border-slate-700">
+                          {item.confidenceSource === 'telegraph_engine' ? 'Source: Telegraph Engine' : 'Source: Application-calculated'}
                         </span>
                       </div>
                     </td>
 
-                    {/* Canonical Proof */}
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1">
-                        <Hash className="w-3 h-3 text-slate-500" />
-                        <code
-                          className="text-[11px] text-slate-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 truncate max-w-[160px]"
-                          title={item.canonicalProof}
-                        >
-                          {item.canonicalProof}
-                        </code>
-                      </div>
+                      {hasCanonical ? (
+                        <div className="flex items-center gap-1">
+                          <Hash className="w-3 h-3 text-slate-500" />
+                          <code className="text-[11px] text-slate-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 truncate max-w-[160px]" title={item.canonicalProof}>
+                            {item.canonicalProof}
+                          </code>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-500 italic">Not supplied by Engine</span>
+                      )}
                     </td>
 
-                    {/* Score */}
                     <td className="py-3.5 px-4 text-right">
                       <span className="font-bold text-white">{item.contributionScore}</span>
                       <span className="text-slate-500 text-[10px]"> / 100</span>
                       <div className="text-[10px] text-slate-500">wt: {(item.weight * 100).toFixed(0)}%</div>
                     </td>
 
-                    {/* Status */}
                     <td className="py-3.5 pl-4 text-center">
-                      {item.polarity === 'positive' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px]">
-                          <CheckCircle className="w-3 h-3" />
-                          Healthy
-                        </span>
-                      )}
-                      {item.polarity === 'negative' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-[10px]">
-                          <XCircle className="w-3 h-3" />
-                          Risk Flag
-                        </span>
-                      )}
-                      {item.polarity === 'neutral' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px]">
-                          <AlertTriangle className="w-3 h-3" />
-                          Neutral
-                        </span>
-                      )}
+                      {item.polarity === 'positive' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px]"><CheckCircle className="w-3 h-3" />Healthy</span>}
+                      {item.polarity === 'negative' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-[10px]"><XCircle className="w-3 h-3" />Risk Flag</span>}
+                      {item.polarity === 'neutral' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px]"><AlertTriangle className="w-3 h-3" />Neutral</span>}
                     </td>
                   </tr>
                 );
@@ -170,14 +141,13 @@ export const EvidenceAttributionTable: React.FC<EvidenceAttributionTableProps> =
         </div>
       ) : (
         <p className="text-xs text-slate-500 p-4 bg-slate-950/40 rounded-xl border border-slate-800/40 font-mono">
-          No external evidence factors recorded.
+          No evidence factors recorded.
         </p>
       )}
 
-      {/* Attribution Disclaimer */}
       {disclaimer && (
         <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/60 text-[11px] text-slate-400 leading-relaxed font-mono">
-          <strong className="text-slate-300">Attribution Notice: </strong>
+          <strong className="text-slate-300">Provenance Notice: </strong>
           {disclaimer}
         </div>
       )}

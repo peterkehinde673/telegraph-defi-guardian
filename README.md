@@ -1,162 +1,295 @@
 # Telegraph DeFi Guardian
 
-> **Telegraph Protocol Hackathon: TRACK 3 — APPLICATIONS**  
-> **Verifiable, Multi-Intent DeFi Intelligence & Deterministic Risk Assessment Terminal**  
-> Consuming live on-chain intelligence and decentralized miner attestations on Base-Sepolia.
+> **Telegraph Protocol Hackathon — Track 3: Applications**  
+> **Multi-intent DeFi intelligence and deterministic risk assessment terminal**
 
-[![Hackathon Track](https://img.shields.io/badge/Telegraph%20Hackathon-Track%203%20(Applications)-brightgreen.svg)](https://telegraphprotocol.com)
-[![Telegraph Protocol](https://img.shields.io/badge/Telegraph%20Subnet-Base--Sepolia-blue.svg)](https://devnode.telegraphprotocol.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-6.2-purple.svg)](https://vitejs.dev/)
-[![React](https://img.shields.io/badge/React-19.0-cyan.svg)](https://react.dev/)
+Live application: https://telegraph-defi-guardian.onrender.com/  
+Repository: https://github.com/peterkehinde673/telegraph-defi-guardian
 
 ---
 
-## 1. Executive Summary & Track 3 Focus
+## 1. What it does
 
-**Telegraph DeFi Guardian** is a **Track 3 (Applications)** production platform that operates as a genuine application consumer of live intelligence routed through the **Telegraph Engine** (`POST /v1/ask`) on Base-Sepolia. It solves the fragmentation and opacity of DeFi risk analysis by submitting natural-language intent queries through the Telegraph Engine router, supporting x402 micropayments where required, normalizing attested payloads into canonical data models, and computing an auditable, deterministic **0–100 DeFi Risk Score** with explicit cryptographic and miner attribution.
+**Telegraph DeFi Guardian** is a Track 3 application that consumes live intelligence through the **Telegraph Engine** and turns multiple intelligence responses into an auditable DeFi risk assessment.
 
----
+For an analysis, the backend submits natural-language requests to Telegraph Engine's `POST /v1/ask` consumer surface. When the Engine requires payment, the backend uses **x402 on Base Sepolia** to authorize the request. The returned Engine payload is normalized and then evaluated by an application-owned deterministic risk model.
 
-## 2. Problem Statement
+The application deliberately separates:
 
-Modern DeFi protocols and institutional liquidity providers face critical structural risks:
-1. **Oracle Vulnerability & Discrepancies**: Single-source price oracles are susceptible to flash-loan exploits, delayed reporting, and cross-market price divergence.
-2. **Opaque & Subjective Risk Scores**: Most crypto rating portals use proprietary, subjective "black box" heuristics that cannot be verified or mathematically audited.
-3. **Fragmented Intelligence Silos**: Evaluating an asset requires querying multiple disparate sources (DEX liquidity, wallet cluster risk, gas surge anomalies, contract SSL/domain security, holder distribution).
-4. **Lack of Cryptographic Provenance**: Users cannot verify which specific subnet worker or validator produced the intelligence backing a transaction.
+1. **Telegraph-provided intelligence** — raw Engine responses and fields actually supplied by the network.
+2. **Normalization** — parsing, validation, field sanitization, and canonical references.
+3. **Application interpretation** — risk categories, derived indicators, missing-data penalties, and the final 0–100 score.
 
----
-
-## 3. Why Telegraph Protocol is Essential
-
-The **Telegraph Protocol** provides a decentralized marketplace for verifiable AI inference and specialized intelligence where:
-- Autonomous miners compete to fulfill specific intelligence **intents** (`CRYPTO_PRICE`, `TVL_LOOKUP`, `GAS_PRICE`, `FRAUD_DETECTION`, `TOKEN_HOLDER_COUNT`, `SSL_VERIFICATION`).
-- Validators grade responses and produce cryptographically signed on-chain `SubnetResponse` events.
-- **Telegraph DeFi Guardian** operates as a clean application consumer: all intelligence requests are routed via the Telegraph Engine (`POST /v1/ask`), which handles miner discovery, execution, and verification under the hood. The application normalizes verified payloads into canonical schemas and constructs an auditable, multi-vector risk model.
+The application does **not** select individual Miners or call Miner endpoints for intelligence. Miner routing remains the responsibility of Telegraph Engine.
 
 ---
 
-## 4. Main Capabilities
+## 2. Why Telegraph matters
 
-- **⚡ Telegraph Engine Consumer**: Routes intelligence intents through the Telegraph Engine (`POST /v1/ask`) with native x402 payment support on Base-Sepolia.
-- **🎯 Deterministic Risk Engine**: Mathematical scoring formula mapping 5 risk dimensions into an auditable 0–100 score (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`).
-- **🛡️ Authentic Miner Attribution Matrix**: Every risk factor is mapped to its originating Miner ID, Miner Name, Canonical Proof Hash, and Category Weight contribution directly from the Telegraph network.
-- **📊 Cross-Oracle Spread Detection**: Automatically computes pricing spread anomalies across independent reporting sources (e.g., CoinPaprika, DefiLlama, Binance).
-- **🔍 Liquidity & Collateral Tiers**: Evaluates total value locked (TVL) against institutional liquidity thresholds ($1B+ Tier 1, $100M+ Tier 2, down to Sub-$1M liquidation danger).
-- **🚨 Counterparty & Wallet Sentinel**: Detects direct mixer deposits, funder fan-out clusters, and sanctions/exploit associations via Telegraph Fraud Miners.
-- **🌐 Network & Execution Cost Sentinel**: Monitors real-time EVM gas dynamics, Gwei surges, and transfer fee impacts.
-- **📡 Subnet Event Stream Explorer**: Inspects live on-chain signed `SubnetResponse` transactions directly from the Telegraph Node.
-- **🏛️ Active Miner Registry Explorer**: Dynamically browses all active Telegraph subnet miners, live endpoint statuses, subnet scores, and supported intents (used for network discovery and transparency, not intelligence routing).
-- **💾 Session Audit History**: Locally stores historical assessments for side-by-side protocol comparison and developer payload inspection.
+Telegraph provides a marketplace and routing layer for machine intelligence. Applications declare what intelligence they need; Telegraph can route the request across the network's available Miner supply, with ranking, verification, and economic settlement handled by the protocol.
+
+DeFi Guardian uses that architecture to combine several intelligence questions rather than building a private collection of individual Miner integrations.
+
+Relevant intents used by the application include:
+
+- `CRYPTO_PRICE`
+- `TVL_LOOKUP`
+- `GAS_PRICE`
+- `FRAUD_DETECTION`
+- `TOKEN_HOLDER_COUNT`
+- `SSL_VERIFICATION`
+
+The application also reads Telegraph Node status, live SubnetResponse events, and the public Miner registry for network observability. The registry is **discovery/telemetry only** and is not used to route intelligence requests.
 
 ---
 
-## 5. System Architecture & Dynamic Consumer Flow
+## 3. Architecture
 
-```
-                                  USER INTERFACE
-             (React 19 + Tailwind CSS + Lucide Icons + Financial Terminal)
-                                        │
-                                        │ (POST /api/telegraph/analyze)
-                                        ▼
-                                 EXPRESS API LAYER
-                      (Node.js / tsx Proxy & Timeout Guard)
-                                        │
-                 ┌──────────────────────┴──────────────────────┐
-                 ▼                                             ▼
-       TELEGRAPH PROTOCOL NODE                      TELEGRAPH ENGINE ROUTER
-     (Discovery, Status & Events)                (POST /v1/ask + x402 Payment)
-   • GET /status (Public Key & Node)             • Routes intelligence intents
-   • GET / (Live SubnetResponse Events)          • Dispatches to real Telegraph Miners
-   • GET /miner-dispatcher/integrations          • Returns verified miner responses
-                 │                                             │
-                 └──────────────────────┬──────────────────────┘
-                                        ▼
-                         TELEGRAPH NORMALIZATION LAYER
-           • Canonical Proof Hashing
-           • Range Clamping & Field Sanitization
-           • Transparent Attribution & Confidence Source Attribution
-                                        │
-                                        ▼
-                        DETERMINISTIC RISK ENGINE (v2.1)
-           • Category Weight Allocations (Price 25%, TVL 30%, Gas 15%, Security 20%, Governance 10%)
-           • Dynamic Missing Data Penalty & Confidence Derivation
-           • Intermediate Metric Calculations (Mcap/TVL, Collateral Cushion, Spread)
-                                        │
-                                        ▼
-                          FINAL DEFI RISK REPORT & AUDIT
+```text
+React / Vite frontend
+        |
+        | POST /api/telegraph/analyze
+        v
+Express application API
+        |
+        | multiple natural-language intent queries
+        v
+Telegraph Engine
+POST /v1/ask
+        |
+        | x402 when payment is required
+        v
+Telegraph Miner network
+        |
+        v
+Engine response
+        |
+        v
+Normalization + validation
+        |
+        v
+Deterministic DeFi Risk Engine
+        |
+        v
+Risk report + evidence/provenance metadata
 ```
 
----
+### Important architectural boundary
 
-## 6. Telegraph Intelligence Routing & Protocol Endpoints
-
-| Capability / Intent | Consumer Route | Underlying Telegraph Component | Extracted Intelligence |
-| :--- | :--- | :--- | :--- |
-| `CRYPTO_PRICE` | `POST /v1/ask` | Telegraph Engine & Price Miners | Price USD, 24h Change %, Market Cap, Multi-Source Spread |
-| `TVL_LOOKUP` | `POST /v1/ask` | Telegraph Engine & TVL Miners | Total Value Locked (USD), Chain Allocations, Collateral Depth |
-| `GAS_PRICE` | `POST /v1/ask` | Telegraph Engine & Gas Miners | Gas Price (Gwei), Wei, Transfer Cost USD, Fee Surge Level |
-| `FRAUD_DETECTION` | `POST /v1/ask` | Telegraph Engine & Wallet Miners | Risk Score (0–1), Reason Codes, Funder Fan-Out, Mixer Flags |
-| `FRAUD_QUERY` | `POST /v1/ask` | Telegraph Engine & Fraud Miners | Source-Backed Forensic Fraud Assessment |
-| `TOKEN_HOLDER_COUNT`| `POST /v1/ask` | Telegraph Engine & Token Miners | Active On-Chain Token Holders, Concentration Tier |
-| `SSL_VERIFICATION` | `POST /v1/ask` | Telegraph Engine & Infra Miners | SSL Validity, Issuer, Days to Expiry, Certificate Grade |
-| `SUBNET_EVENTS` | `GET /` | Base-Sepolia Telegraph Node | Signed `SubnetResponse` Events, Validator Signatures |
-| `MINER_DISPATCHER` | `GET /miner-dispatcher/integrations` | Base-Sepolia Telegraph Node | Active Miner Directory & Telemetry (Discovery Only) |
+DeFi Guardian does not locally rank, choose, or dispatch to a Miner for inference. It consumes Telegraph Engine as the application-facing routing surface. This is important for Track 3 because the protocol, rather than the application, controls Miner routing.
 
 ---
 
-## 7. Deterministic Risk Engine Methodology
+## 4. Risk model
 
-The DeFi Guardian Risk Engine computes an objective risk score $R \in [0, 100]$ using declared mathematical equations:
+The risk engine combines five categories:
 
-$$R = \min\left(100, \sum_{c \in C} (w_c \cdot s_c) + P_{\text{missing}}\right)$$
+| Category | Weight |
+|---|---:|
+| Price stability & volatility | 25% |
+| TVL & liquidity cushion | 30% |
+| Network execution cost | 15% |
+| Counterparty & contract security | 20% |
+| Holder distribution | 10% |
 
-### Category Weights ($w_c$):
-- **TVL & Liquidity Cushion ($w = 0.30$)**: Institutional ($>\$1\text{B} \rightarrow 0\text{ pts}$), Deep ($>\$100\text{M} \rightarrow 10\text{ pts}$), Moderate ($>\$10\text{M} \rightarrow 25\text{ pts}$), Shallow ($>\$1\text{M} \rightarrow 50\text{ pts}$), Danger ($<\$1\text{M} \rightarrow 85\text{ pts}$).
-- **Price Stability & Volatility ($w = 0.25$)**: 24h price swing $\le 3\% \rightarrow 5\text{ pts}$, $\le 8\% \rightarrow 25\text{ pts}$, $\le 20\% \rightarrow 55\text{ pts}$, $>20\% \rightarrow 85\text{ pts}$. Added spread divergence penalty if source spread $>1.5\%$.
-- **Counterparty & Contract Security ($w = 0.20$)**: Evaluates mixer links, funder clusters, and reason codes (`DIRECT_MIXER_FUNDER` adds $+70\text{ pts}$).
-- **Network State & Execution Cost ($w = 0.15$)**: EVM Gas $\le 20\text{ Gwei} \rightarrow 5\text{ pts}$, $\le 50\text{ Gwei} \rightarrow 25\text{ pts}$, $\le 100\text{ Gwei} \rightarrow 60\text{ pts}$, $>100\text{ Gwei} \rightarrow 90\text{ pts}$.
-- **Asset Distribution & Governance ($w = 0.10$)**: Holder count $\ge 50\text{k} \rightarrow 5\text{ pts}$, $\ge 5\text{k} \rightarrow 25\text{ pts}$, $\ge 1\text{k} \rightarrow 55\text{ pts}$, $<250 \rightarrow 90\text{ pts}$.
+The final score is normalized to `0–100`, where a higher value represents greater risk:
 
-### Missing Data & Confidence Penalty:
-When an intelligence intent is unavailable or unmeasured for a target, the engine applies an explicit **Uncertainty Penalty** ($+12\text{ pts}$ per missing core category) and lowers the **Confidence Score** by $18\%$.
+- `LOW`: `< 28`
+- `MODERATE`: `28–54`
+- `HIGH`: `55–77`
+- `CRITICAL`: `78–100`
 
-### Classifications:
-- **LOW**: $0 \le R < 28$
-- **MODERATE**: $28 \le R < 55$
-- **HIGH**: $55 \le R < 78$
-- **CRITICAL**: $78 \le R \le 100$
+Missing categories are explicitly reported and incur an uncertainty adjustment. The application also aggregates the confidence values of available normalized signals into an application-level confidence score.
 
----
-
-## 8. Technology Stack
-
-- **Frontend**: React 19, TypeScript 5.8, Tailwind CSS v4, Motion, Lucide Icons
-- **Backend API**: Express 4, Node.js (via `tsx` in development, bundled with `esbuild` for production)
-- **Data Attestation**: Telegraph Protocol Base-Sepolia Subnet & Miners
-- **Build System**: Vite 6.2 + TypeScript + esbuild
+These calculations are **DeFi Guardian interpretations**, not Telegraph Miner scores.
 
 ---
 
-## 9. Verification & Testing
+## 5. Provenance and verification
 
-Execute the test suites to verify end-to-end functionality:
+The UI distinguishes between data that is explicitly supplied by Telegraph and values calculated by DeFi Guardian.
+
+### Telegraph-provided fields
+
+When present in the Engine response, the application preserves fields such as:
+
+- Miner/routing metadata
+- confidence
+- canonical identifiers
+- timestamps
+- source information
+- intent-specific result fields
+
+If the Engine response does not expose Miner identity or a canonical proof/reference, the UI says so rather than inferring it from the Miner registry.
+
+### Application-derived fields
+
+The application may calculate:
+
+- risk category scores
+- volatility thresholds
+- TVL tier classification
+- gas severity
+- cross-source spread when multiple source prices are actually present
+- missing-data penalties
+- aggregate application confidence
+- the final DeFi risk classification
+
+These are labeled as application calculations and should not be confused with Telegraph's own validation or Miner scores.
+
+---
+
+## 6. x402 payment flow
+
+For protected Engine requests:
+
+```text
+POST /v1/ask
+      |
+      v
+HTTP 402 Payment Required
+      |
+      v
+x402 client signs the Base Sepolia payment
+      |
+      v
+request is retried with payment proof
+      |
+      v
+HTTP 200 Engine response
+```
+
+The server reads the wallet from the environment variable:
+
+```text
+TELEGRAPH_EVM_PRIVATE_KEY
+```
+
+The private key is never part of the repository or frontend bundle. A dedicated, limited-funds Base Sepolia wallet is recommended for public deployments.
+
+HTTP `402` is **not** treated as an intelligence result. If all requested Engine queries fail, the API returns an error instead of generating a synthetic report.
+
+---
+
+## 7. Public application safety
+
+Because the deployed application performs paid Engine requests server-side, the analysis endpoint includes an in-memory request limiter. This prevents a single public client from continuously consuming the deployment wallet.
+
+The limits can be configured with:
+
+```text
+MAX_ANALYSES_PER_IP_PER_HOUR
+MAX_GLOBAL_ANALYSES_PER_HOUR
+```
+
+The default limits are intentionally conservative for a hackathon deployment.
+
+The application also avoids automatically running paid inference when the landing page opens. A visitor must explicitly click **Analyze Target**.
+
+---
+
+## 8. Local setup
+
+Requirements:
+
+- Node.js 22
+- npm
+
+Install dependencies:
 
 ```bash
-# 1. Live Telegraph Protocol Application Consumer Test
+npm install
+```
+
+Create `.env` from `.env.example` and configure the Telegraph endpoints and a funded Base Sepolia test wallet.
+
+Run the development server:
+
+```bash
+npm run dev
+```
+
+Run the production build:
+
+```bash
+npm run typecheck
+npm run build
+npm start
+```
+
+---
+
+## 9. Verification scripts
+
+```bash
+# Live Telegraph Engine + Node verification
 npx tsx scripts/test-telegraph.ts
 
-# 2. Intelligence Normalization Layer Test
+# Normalization tests
 npx tsx scripts/test-normalization.ts
 
-# 3. Deterministic Risk Engine Test
+# Deterministic risk-engine tests
 npx tsx scripts/test-risk-engine.ts
 ```
 
+The live Telegraph test must receive an actual successful Engine response before treating paid inference as successful. A payment challenge (`HTTP 402`) is reported as payment required, not as an inference pass.
+
 ---
 
-## 10. License
+## 10. Render deployment
 
-MIT License — see [LICENSE](LICENSE) for details.
+The repository includes `render.yaml`.
+
+Recommended Render configuration:
+
+```text
+Build Command: npm install --no-audit --no-fund && npm run build
+Start Command: npm run start
+```
+
+Required environment variables:
+
+```text
+NODE_ENV=production
+TELEGRAPH_NODE_URL=https://devnode.telegraphprotocol.com
+TELEGRAPH_ENGINE_URL=http://13.237.89.59:7044/engine
+TELEGRAPH_DAEMON_URL=http://13.237.89.59:8081
+TELEGRAPH_EVM_PRIVATE_KEY=<Render secret>
+```
+
+Optional protection settings:
+
+```text
+MAX_ANALYSES_PER_IP_PER_HOUR=8
+MAX_GLOBAL_ANALYSES_PER_HOUR=60
+```
+
+Never commit `.env` or the private key.
+
+---
+
+## 11. Track 3 fit
+
+The application is designed around several areas highlighted by Telegraph's Track 3 guidance:
+
+- **On-chain/blockchain intelligence pipeline** — DeFi analysis consumes blockchain-oriented intelligence.
+- **Multi-intent intelligence** — one analysis can combine price, TVL, gas, wallet, holder, and SSL signals.
+- **Confidence-aware analysis** — Engine confidence is preserved when supplied; application estimates are labeled separately.
+- **Signal quality and verification** — normalization and validation expose missing or incomplete fields instead of silently fabricating data.
+- **Real-time network visibility** — the dashboard reads live Telegraph Node status, SubnetResponse events, and Miner registry information.
+
+The application is intended to create genuine demand for Telegraph intelligence rather than merely displaying a static demo.
+
+---
+
+## 12. Limitations
+
+Telegraph Engine may not expose every internal routing or Miner-level verification field to an application consumer. DeFi Guardian therefore does not claim Miner attribution when the response does not provide it.
+
+Likewise, a DeFi risk score is an application decision model. It is not a claim that Telegraph itself assigns the displayed 0–100 risk score.
+
+---
+
+## 13. License
+
+MIT License — see [`package/LICENSE`](package/LICENSE).

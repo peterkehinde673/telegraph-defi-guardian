@@ -4,11 +4,13 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --no-audit --no-fund && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22
       - key: TELEGRAPH_NODE_URL
         value: https://devnode.telegraphprotocol.com
       - key: TELEGRAPH_ENGINE_URL

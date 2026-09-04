@@ -2,20 +2,58 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { telegraphService, TelegraphIntent } from './server/telegraph/index.ts';
+import { telegraphService } from './server/telegraph/index.ts';
 import { deFiRiskEngine, InputIntelligenceBundle, SubjectTarget } from './server/risk-engine/index.ts';
+
+const WINDOW_MS = 60 * 60 * 1000;
+const MAX_ANALYSES_PER_IP = Math.max(1, Number(process.env.MAX_ANALYSES_PER_IP_PER_HOUR) || 8);
+const MAX_GLOBAL_ANALYSES = Math.max(1, Number(process.env.MAX_GLOBAL_ANALYSES_PER_HOUR) || 60);
+const ipUsage = new Map<string, { count: number; resetAt: number }>();
+let globalUsage = { count: 0, resetAt: Date.now() + WINDOW_MS };
+
+function consumeAnalysisSlot(ip: string): { allowed: boolean; retryAfterSeconds: number } {
+  const now = Date.now();
+
+  if (now >= globalUsage.resetAt) {
+    globalUsage = { count: 0, resetAt: now + WINDOW_MS };
+  }
+
+  const current = ipUsage.get(ip);
+  if (!current || now >= current.resetAt) {
+    ipUsage.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+  } else if (current.count >= MAX_ANALYSES_PER_IP) {
+    return { allowed: false, retryAfterSeconds: Math.ceil((current.resetAt - now) / 1000) };
+  } else {
+    current.count += 1;
+  }
+
+  if (globalUsage.count >= MAX_GLOBAL_ANALYSES) {
+    return { allowed: false, retryAfterSeconds: Math.ceil((globalUsage.resetAt - now) / 1000) };
+  }
+
+  globalUsage.count += 1;
+
+  // Keep the in-memory limiter bounded on long-lived Render instances.
+  if (ipUsage.size > 1000) {
+    for (const [key, value] of ipUsage) {
+      if (value.resetAt <= now) ipUsage.delete(key);
+    }
+  }
+
+  return { allowed: true, retryAfterSeconds: 0 };
+}
 
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+  app.set('trust proxy', 1);
+  app.use(express.json({ limit: '32kb' }));
 
   // -------------------------------------------------------------
   // Backend API Endpoints (All operations proxy real Telegraph data)
   // -------------------------------------------------------------
 
-  // 1. Health check
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
@@ -25,7 +63,6 @@ async function startServer() {
     });
   });
 
-  // 2. Telegraph Network Overview
   app.get('/api/telegraph/overview', async (req, res) => {
     try {
       const overview = await telegraphService.getNetworkOverview();
@@ -42,7 +79,6 @@ async function startServer() {
     }
   });
 
-  // 3. Live On-Chain Signed Events from Telegraph Node
   app.get('/api/telegraph/events', async (req, res) => {
     try {
       const events = await telegraphService['client'].getLiveSubnetResponses();
@@ -60,7 +96,6 @@ async function startServer() {
     }
   });
 
-  // 4. Miner Dispatcher Registry & Intent Ranking
   app.get('/api/telegraph/miners', async (req, res) => {
     try {
       const miners = await telegraphService['client'].getMinerIntegrations();
@@ -78,8 +113,18 @@ async function startServer() {
     }
   });
 
-  // 5. Core DeFi Guardian Risk Analysis API
   app.post('/api/telegraph/analyze', async (req, res) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const slot = consumeAnalysisSlot(ip);
+    if (!slot.allowed) {
+      res.setHeader('Retry-After', String(slot.retryAfterSeconds));
+      return res.status(429).json({
+        success: false,
+        error: 'Analysis rate limit reached. Please try again later.',
+        retryAfterSeconds: slot.retryAfterSeconds,
+      });
+    }
+
     try {
       const {
         target,
@@ -96,10 +141,9 @@ async function startServer() {
         });
       }
 
-      const trimmedTarget = target.trim();
+      const trimmedTarget = target.trim().slice(0, 200);
       const isEvmAddress = /^0x[a-fA-F0-9]{40}$/.test(trimmedTarget);
 
-      // Determine subject type
       let subjectType: 'token' | 'protocol' | 'wallet' | 'composite' = 'token';
       if (isEvmAddress) {
         subjectType = 'wallet';
@@ -122,85 +166,94 @@ async function startServer() {
 
       const bundle: InputIntelligenceBundle = {};
       const intentPromises: Promise<any>[] = [];
+      let successfulIntentCount = 0;
 
-      // A. Wallet Risk Intent (if wallet address or wallet analysis requested)
       if (isEvmAddress || analysisType === 'wallet') {
         intentPromises.push(
           telegraphService
             .assessWallet(isEvmAddress ? trimmedTarget : contractAddress || trimmedTarget, chain)
             .then((sig) => {
+              successfulIntentCount += 1;
               bundle.walletRisk = sig;
             })
             .catch((e) => console.warn(`Wallet assessment intent unavailable for ${trimmedTarget}:`, e.message)),
         );
       }
 
-      // B. Crypto Price Intent (for assets, protocols, quick queries)
       if (!isEvmAddress) {
         const coinQuery = trimmedTarget.toLowerCase();
         intentPromises.push(
           telegraphService
             .getCryptoPrice(coinQuery)
             .then((sig) => {
+              successfulIntentCount += 1;
               bundle.price = sig;
             })
             .catch((e) => console.warn(`Crypto price intent unavailable for ${coinQuery}:`, e.message)),
         );
       }
 
-      // C. TVL Lookup Intent (for protocols or ecosystem assets)
       if (!isEvmAddress) {
         const tvlQuery = trimmedTarget.toLowerCase();
         intentPromises.push(
           telegraphService
             .getTVL(tvlQuery)
             .then((sig) => {
+              successfulIntentCount += 1;
               bundle.tvl = sig;
             })
             .catch((e) => console.warn(`TVL lookup intent unavailable for ${tvlQuery}:`, e.message)),
         );
       }
 
-      // D. Gas Price Intent (real execution conditions on target chain)
       intentPromises.push(
         telegraphService
           .getGasPrice(chain || 'eth')
           .then((sig) => {
+            successfulIntentCount += 1;
             bundle.gas = sig;
           })
           .catch((e) => console.warn(`Gas price intent unavailable for ${chain}:`, e.message)),
       );
 
-      // E. Token Holder Count Intent (if contract address provided or standard token)
       const tokenAddressToQuery = contractAddress || (isEvmAddress ? trimmedTarget : null);
       if (tokenAddressToQuery) {
         intentPromises.push(
           telegraphService
             .getTokenHolders(tokenAddressToQuery, chain || 'eth')
             .then((sig) => {
+              successfulIntentCount += 1;
               bundle.holders = sig;
             })
-            .catch((e) => console.warn(`Token holders intent unavailable:`, e.message)),
+            .catch((e) => console.warn('Token holders intent unavailable:', e.message)),
         );
       }
 
-      // F. SSL Handshake Intent (if domain provided or known protocol)
       if (domain || (subjectType === 'protocol' && !trimmedTarget.includes(' '))) {
-        const domainToTest = domain || `${trimmedTarget.toLowerCase().replace(/[^a-z0-9]/g, '')}.org`;
+        const domainToTest = String(domain || `${trimmedTarget.toLowerCase().replace(/[^a-z0-9]/g, '')}.org`).slice(0, 253);
         intentPromises.push(
           telegraphService
             .checkSSL(domainToTest)
             .then((sig) => {
+              successfulIntentCount += 1;
               bundle.ssl = sig;
             })
             .catch((e) => console.warn(`SSL check intent unavailable for ${domainToTest}:`, e.message)),
         );
       }
 
-      // Wait for all real intent dispatches to complete concurrently
       await Promise.all(intentPromises);
 
-      // Execute deterministic risk assessment on verified normalized intelligence
+      // Never return a convincing-looking neutral report when every paid/live
+      // Telegraph query failed. Partial reports are allowed and expose missing
+      // categories through the deterministic risk engine.
+      if (successfulIntentCount === 0) {
+        return res.status(502).json({
+          success: false,
+          error: 'Telegraph Engine returned no usable intelligence. Check x402 payment configuration and Engine availability.',
+        });
+      }
+
       const report = deFiRiskEngine.analyze(subject, bundle);
 
       return res.json({
@@ -216,9 +269,6 @@ async function startServer() {
     }
   });
 
-  // -------------------------------------------------------------
-  // Vite Middleware / Static Asset Serving
-  // -------------------------------------------------------------
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
